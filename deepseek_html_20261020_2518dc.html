@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Melo Travel | Control de movimientos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- PANTALLA DE LOGIN -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-mark-lg">MT</div>
+      <h1>Melo Travel</h1>
+      <p>Portal de control financiero</p>
+    </div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginUser">Usuario</label>
+        <select id="loginUser" required>
+          <option value="">Selecciona tu usuario</option>
+          <option value="carlos">Carlos</option>
+          <option value="junior">Junior</option>
+          <option value="jhonatan">Jhonatan</option>
+          <option value="admin">Administración</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="loginPin">PIN (4 dígitos)</label>
+        <input id="loginPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+      <p class="login-hint">Demo: PIN <strong>1234</strong> para todos los usuarios</p>
+    </form>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app" class="app hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">MT</div>
+      <div>
+        <h1>Melo Travel</h1>
+        <p>Portal de control financiero</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="user-chip" id="userChip">—</span>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">Salir</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <button class="nav-button active" data-page="dashboard"><span class="ico">▦</span><span>Dashboard</span></button>
+      <button class="nav-button" data-page="new"><span class="ico">＋</span><span>Registrar</span></button>
+      <button class="nav-button" data-page="review"><span class="ico">✓</span><span>Revisiones</span><span id="pendingNavCount" class="pill pending" style="margin-left:auto">0</span></button>
+      <button class="nav-button" data-page="history"><span class="ico">☷</span><span>Historial</span></button>
+      <div class="sidebar-note">
+        <strong>Flujo de aprobación</strong>
+        <ol>
+          <li>Colaborador registra</li>
+          <li>Adjunta evidencia</li>
+          <li>Admin revisa</li>
+          <li>Solo lo aprobado suma</li>
+        </ol>
+      </div>
+    </aside>
+    <main id="main"></main>
+  </div>
+</div>
+
+<!-- MODAL GENÉRICO -->
+<div id="modalRoot"></div>
+
+<!-- TOAST -->
+<div id="toastRoot"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
