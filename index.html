@@ -1,308 +1,85 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Melo Travel | Control de movimientos</title>
-<style>
-:root {
-  --site-primary: #17365D;
-  --site-on-primary: #FFFFFF;
-  --site-secondary: #F4A142;
-  --site-on-secondary: #1C2635;
-  --site-background: #F4F7FB;
-  --site-on-background: #182536;
-  --site-font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --site-font-heading: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --site-heading-scale: 1;
-  --site-spacing-scale: 1;
-  --site-radius-scale: 1;
-  --site-decoration-opacity: 1;
-  --surface: light-dark(#FFFFFF, #172231);
-  --surface-soft: light-dark(#F7F9FC, #1D2A3B);
-  --text: light-dark(#182536, #EDF3FA);
-  --muted: light-dark(#68778A, #A9B7C8);
-  --border: light-dark(#DDE5EF, #344458);
-  --green: #19734A;
-  --green-soft: light-dark(#E4F5EB, #173D2D);
-  --red: #B42335;
-  --red-soft: light-dark(#FDEBED, #4A252D);
-  --amber: #925B08;
-  --amber-soft: light-dark(#FFF2D7, #49391C);
-  color-scheme: light dark;
-}
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--site-background); color: var(--text); font-family: var(--site-font-body); }
-button, input, select, textarea { font: inherit; }
-button { cursor: pointer; }
-#app { min-height: 100vh; width: 100%; background-color: var(--site-background); color: var(--site-on-background); border-radius: 0; }
-.topbar { background: var(--site-primary); color: var(--site-on-primary); padding: calc(18px * var(--site-spacing-scale)) clamp(18px, 4vw, 48px); display:flex; align-items:center; justify-content:space-between; gap:20px; }
-.brand { display:flex; gap:12px; align-items:center; min-width:0; }
-.brand-mark { width:44px; height:44px; border-radius: calc(13px * var(--site-radius-scale)); background:var(--site-secondary); color:var(--site-on-secondary); display:grid; place-items:center; font-weight:900; letter-spacing:-1px; flex-shrink:0; }
-.brand h1 { margin:0; font-size:calc(21px * var(--site-heading-scale)); line-height:1.15; font-family:var(--site-font-heading); }
-.brand p { margin:4px 0 0; color:#D5E2F1; font-size:12px; letter-spacing:.11em; text-transform:uppercase; }
-.top-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.role-label { font-size:12px; color:#D5E2F1; }
-.role-select { color:#fff; background:#24476F; border:1px solid #567292; padding:9px 12px; border-radius:10px; }
-.layout { display:grid; grid-template-columns:230px minmax(0,1fr); max-width:1500px; margin:0 auto; min-height:calc(100vh - 80px); }
-.sidebar { padding:24px 14px; border-right:1px solid var(--border); background:var(--surface); }
-.nav-button { width:100%; border:0; background:transparent; color:var(--muted); padding:12px 14px; margin:3px 0; border-radius:12px; display:flex; align-items:center; gap:12px; text-align:left; font-weight:650; }
-.nav-button .ico { width:22px; text-align:center; font-size:17px; }
-.nav-button.active { background:var(--site-primary); color:white; }
-.nav-button:hover:not(.active) { background:var(--surface-soft); color:var(--text); }
-.sidebar-note { margin:30px 7px 0; padding:14px; background:var(--surface-soft); border:1px solid var(--border); border-radius:14px; font-size:12px; color:var(--muted); line-height:1.5; }
-main { min-width:0; padding:clamp(20px, 3vw, 38px); }
-.page-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:24px; }
-.eyebrow { text-transform:uppercase; letter-spacing:.13em; font-size:11px; color:var(--muted); font-weight:800; }
-h2 { margin:6px 0 7px; font-size:calc(28px * var(--site-heading-scale)); letter-spacing:-.7px; line-height:1.15; font-family:var(--site-font-heading); }
-.page-head p { margin:0; color:var(--muted); font-size:14px; line-height:1.5; }
-.btn { border:1px solid var(--border); border-radius:11px; padding:10px 15px; color:var(--text); background:var(--surface); font-weight:750; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
-.btn:hover { filter:brightness(.97); }
-.btn-primary { background:var(--site-secondary); border-color:var(--site-secondary); color:var(--site-on-secondary); }
-.btn-dark { background:var(--site-primary); border-color:var(--site-primary); color:#fff; }
-.btn-approve { background:var(--green-soft); border-color:#A9DDBD; color:var(--green); }
-.btn-reject { background:var(--red-soft); border-color:#F2B7BF; color:var(--red); }
-.btn-sm { padding:7px 10px; font-size:12px; border-radius:9px; }
-.cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:22px; }
-.metric { background:var(--surface); border:1px solid var(--border); border-radius:calc(17px * var(--site-radius-scale)); padding:18px; min-width:0; box-shadow:0 2px 7px #14253a08; }
-.metric-top { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--muted); font-size:12px; font-weight:750; }
-.metric-icon { width:34px; height:34px; border-radius:11px; display:grid; place-items:center; background:var(--surface-soft); font-size:17px; }
-.metric-value { font-size:clamp(20px,2vw,27px); letter-spacing:-.7px; font-weight:850; margin:13px 0 5px; overflow-wrap:anywhere; }
-.metric-foot { font-size:11px; color:var(--muted); }
-.panel { background:var(--surface); border:1px solid var(--border); border-radius:calc(17px * var(--site-radius-scale)); padding:20px; min-width:0; }
-.panel-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
-.panel-head h3 { margin:0; font-size:16px; }
-.panel-head p { margin:5px 0 0; color:var(--muted); font-size:12px; }
-.grid-two { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr); gap:18px; margin-bottom:18px; }
-.bar-row { display:grid; grid-template-columns:115px minmax(30px,1fr) 92px; align-items:center; gap:12px; margin:16px 0; font-size:12px; }
-.bar-label { color:var(--muted); font-weight:700; }
-.bar-track { height:10px; border-radius:99px; background:var(--surface-soft); overflow:hidden; }
-.bar-fill { height:100%; border-radius:99px; background:var(--site-secondary); }
-.bar-fill.blue { background:#477EBB; }
-.bar-fill.green { background:#4EAA78; }
-.bar-value { text-align:right; font-weight:800; font-variant-numeric:tabular-nums; }
-.notice { display:flex; gap:12px; padding:14px 15px; border:1px solid #E8D39B; border-radius:13px; background:var(--amber-soft); color:var(--amber); font-size:13px; line-height:1.5; margin-bottom:18px; }
-.notice strong { display:block; margin-bottom:2px; }
-.table-wrap { overflow-x:auto; }
-table { border-collapse:collapse; width:100%; min-width:700px; font-size:13px; }
-th { text-align:left; font-size:10px; letter-spacing:.09em; color:var(--muted); text-transform:uppercase; padding:11px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
-td { padding:13px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
-tbody tr:last-child td { border-bottom:0; }
-.money { font-variant-numeric:tabular-nums; font-weight:800; white-space:nowrap; }
-.pill { display:inline-flex; align-items:center; gap:6px; border-radius:99px; padding:5px 9px; font-size:11px; font-weight:800; white-space:nowrap; }
-.pill::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
-.pill.approved { color:var(--green); background:var(--green-soft); }
-.pill.pending { color:var(--amber); background:var(--amber-soft); }
-.pill.rejected { color:var(--red); background:var(--red-soft); }
-.type { font-size:11px; font-weight:850; }
-.type.income { color:var(--green); }
-.type.expense { color:var(--red); }
-.vehicle-tag { color:var(--muted); font-size:11px; font-weight:700; }
-.empty { padding:30px 12px; text-align:center; color:var(--muted); }
-.form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
-.field { display:flex; flex-direction:column; gap:7px; }
-.field.full { grid-column:1/-1; }
-.field label { font-size:12px; font-weight:800; color:var(--text); }
-.field input,.field select,.field textarea { width:100%; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:10px; padding:11px 12px; outline:none; }
-.field input:focus,.field select:focus,.field textarea:focus { border-color:#477EBB; box-shadow:0 0 0 3px #477EBB22; }
-.field textarea { min-height:88px; resize:vertical; }
-.hint { font-size:11px; color:var(--muted); line-height:1.45; }
-.upload-box { border:1.5px dashed #9EADBE; background:var(--surface-soft); border-radius:13px; padding:18px; text-align:center; }
-.upload-box input { max-width:100%; border:0; padding:8px; }
-.preview-list { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
-.preview-item { width:90px; position:relative; }
-.preview-item img { width:90px; height:76px; object-fit:cover; border-radius:9px; border:1px solid var(--border); }
-.preview-item span { display:block; font-size:10px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
-.review-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(270px,.8fr); gap:18px; }
-.review-card { border:1px solid var(--border); background:var(--surface); border-radius:15px; padding:17px; margin-bottom:12px; }
-.review-card.selected { border-color:#477EBB; box-shadow:0 0 0 2px #477EBB20; }
-.review-title { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
-.review-title h4 { margin:0 0 5px; font-size:14px; }
-.review-title p { margin:0; color:var(--muted); font-size:12px; }
-.review-amount { font-size:18px; font-weight:900; white-space:nowrap; }
-.review-meta { display:flex; flex-wrap:wrap; gap:7px; margin:13px 0; }
-.meta-chip { background:var(--surface-soft); color:var(--muted); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; }
-.evidence-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-.evidence-grid img { width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:11px; border:1px solid var(--border); }
-.evidence-placeholder { min-height:100px; border-radius:11px; background:var(--surface-soft); display:grid; place-items:center; color:var(--muted); font-size:12px; }
-.detail-block { margin-top:16px; }
-.detail-block h4 { margin:0 0 8px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.09em; }
-.detail-block p { margin:0; font-size:13px; line-height:1.5; }
-.approval-actions { display:flex; gap:8px; margin-top:18px; flex-wrap:wrap; }
-.filter-row { display:flex; flex-wrap:wrap; gap:9px; margin-bottom:15px; }
-.filter-row input,.filter-row select { border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:10px; padding:9px 11px; }
-.filter-row input { flex:1; min-width:180px; }
-.toast { position:fixed; right:20px; bottom:20px; max-width:calc(100vw - 40px); padding:13px 17px; border-radius:12px; background:var(--site-primary); color:#fff; box-shadow:0 10px 35px #0002; z-index:10; font-size:13px; animation:fadein .18s ease-out; }
-@keyframes fadein { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-.footer-note { margin-top:22px; color:var(--muted); font-size:11px; line-height:1.5; }
-@media(max-width:1050px) { .cards { grid-template-columns:repeat(2,minmax(0,1fr)); } .grid-two,.review-layout { grid-template-columns:1fr; } }
-@media(max-width:720px) { .layout { grid-template-columns:1fr; } .sidebar { border-right:0; border-bottom:1px solid var(--border); padding:9px 12px; display:flex; overflow-x:auto; gap:4px; } .nav-button { width:auto; white-space:nowrap; margin:0; padding:10px 12px; } .nav-button .ico { display:none; } .sidebar-note { display:none; } .topbar { align-items:flex-start; flex-direction:column; } .top-actions { width:100%; justify-content:space-between; } main { padding:20px 14px 30px; } .page-head { flex-direction:column; } .form-grid { grid-template-columns:1fr; } .field.full { grid-column:auto; } .cards { gap:9px; } .metric { padding:13px; } .metric-top { font-size:11px; } .metric-icon { width:29px; height:29px; } .metric-value { font-size:20px; } .bar-row { grid-template-columns:88px minmax(20px,1fr) 78px; gap:8px; } }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div id="app">
+
+<!-- PANTALLA DE LOGIN -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-mark-lg">MT</div>
+      <h1>Melo Travel</h1>
+      <p>Portal de control financiero</p>
+    </div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginUser">Usuario</label>
+        <select id="loginUser" required>
+          <option value="">Selecciona tu usuario</option>
+          <option value="carlos">Carlos</option>
+          <option value="junior">Junior</option>
+          <option value="jhonatan">Jhonatan</option>
+          <option value="admin">Administración</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="loginPin">PIN (4 dígitos)</label>
+        <input id="loginPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+      <p class="login-hint">Demo: PIN <strong>1234</strong> para todos los usuarios</p>
+    </form>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app" class="app hidden">
   <header class="topbar">
-    <div class="brand"><div class="brand-mark">MT</div><div><h1>Melo Travel</h1><p>Portal de control financiero</p></div></div>
-    <div class="top-actions"><span class="role-label">Vista de demostración</span><label for="roleSelect" class="role-label">Rol:</label><select id="roleSelect" class="role-select" aria-label="Cambiar rol"><option value="employee">Colaborador</option><option value="approver">Aprobador / Administración</option></select></div>
+    <div class="brand">
+      <div class="brand-mark">MT</div>
+      <div>
+        <h1>Melo Travel</h1>
+        <p>Portal de control financiero</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="user-chip" id="userChip">—</span>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">Salir</button>
+    </div>
   </header>
+
   <div class="layout">
     <aside class="sidebar">
-      <button class="nav-button active" data-page="dashboard"><span class="ico">▦</span>Dashboard</button>
-      <button class="nav-button" data-page="new"><span class="ico">＋</span>Registrar movimiento</button>
-      <button class="nav-button" data-page="review"><span class="ico">✓</span>Revisiones <span id="pendingNavCount" class="pill pending" style="margin-left:auto">2</span></button>
-      <button class="nav-button" data-page="history"><span class="ico">☷</span>Historial</button>
-      <div class="sidebar-note"><strong>Flujo de aprobación</strong><br>1. El colaborador registra el movimiento.<br>2. Adjunta evidencia.<br>3. Administración revisa.<br>4. Solo lo aprobado suma al dashboard.</div>
+      <button class="nav-button active" data-page="dashboard"><span class="ico">▦</span><span>Dashboard</span></button>
+      <button class="nav-button" data-page="new"><span class="ico">＋</span><span>Registrar</span></button>
+      <button class="nav-button" data-page="review"><span class="ico">✓</span><span>Revisiones</span><span id="pendingNavCount" class="pill pending" style="margin-left:auto">0</span></button>
+      <button class="nav-button" data-page="history"><span class="ico">☷</span><span>Historial</span></button>
+      <div class="sidebar-note">
+        <strong>Flujo de aprobación</strong>
+        <ol>
+          <li>Colaborador registra</li>
+          <li>Adjunta evidencia</li>
+          <li>Admin revisa</li>
+          <li>Solo lo aprobado suma</li>
+        </ol>
+      </div>
     </aside>
     <main id="main"></main>
   </div>
 </div>
-<script>
-(() => {
-  const $ = (s, root=document) => root.querySelector(s);
-  const $$ = (s, root=document) => [...root.querySelectorAll(s)];
-  const money = n => new Intl.NumberFormat('es-PE',{style:'currency',currency:'PEN',maximumFractionDigits:2}).format(Number(n)||0);
-  const dateFmt = s => { if(!s) return '—'; const d=new Date(s+'T12:00:00'); return d.toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'}); };
-  const today = () => new Date().toISOString().slice(0,10);
-  let role = 'employee';
-  let page = 'dashboard';
-  let selectedReview = null;
-  let historyFilter = 'Todos';
-  let searchText = '';
-  let draftEvidence = [];
-  let toastTimer;
-  const sample = [
-    {id:1001,date:'2026-10-17',type:'Egreso',category:'Combustible',vehicle:'Camión JAC',amount:183.10,description:'Abastecimiento para servicio a Lima',vendor:'Grifo Lima Norte',account:'Caja chica',payment:'Efectivo',submitter:'Carlos',status:'approved',submitted:'2026-10-17T10:12:00',reviewer:'Administración',reviewed:'2026-10-17T12:00:00',notes:'Combustible para recorrido programado.',evidence:[]},
-    {id:1002,date:'2026-10-18',type:'Ingreso',category:'Servicio de transporte',vehicle:'Vanche',amount:800,description:'Servicio de transporte a Chala',vendor:'Cliente de servicio',account:'BCP',payment:'Transferencia',submitter:'Junior',status:'approved',submitted:'2026-10-18T09:20:00',reviewer:'Administración',reviewed:'2026-10-18T11:05:00',notes:'Servicio completado.',evidence:[]},
-    {id:1003,date:'2026-10-19',type:'Egreso',category:'Repuestos',vehicle:'Vanche',amount:250,description:'Compra de repuestos menores',vendor:'Repuestos Central',account:'Yape / Plin',payment:'Yape / Plin',submitter:'Carlos',status:'pending',submitted:'2026-10-19T08:25:00',reviewer:'',reviewed:'',notes:'Repuestos para revisión del sistema de frenos.',evidence:[]},
-    {id:1004,date:'2026-10-19',type:'Egreso',category:'Mantenimiento',vehicle:'Camión JAC',amount:320,description:'Cambio de aceite y filtro',vendor:'Taller JAC',account:'Caja chica',payment:'Efectivo',submitter:'Jhonatan',status:'pending',submitted:'2026-10-19T09:15:00',reviewer:'',reviewed:'',notes:'Mantenimiento periódico. Confirmar kilometraje.',evidence:[]},
-    {id:1005,date:'2026-10-16',type:'Egreso',category:'Peajes',vehicle:'Sunray',amount:45,description:'Peajes de recorrido',vendor:'Peajes ruta sur',account:'Caja chica',payment:'Efectivo',submitter:'Junior',status:'rejected',submitted:'2026-10-16T15:15:00',reviewer:'Administración',reviewed:'2026-10-16T16:00:00',notes:'Falta evidencia legible del pago.',evidence:[]}
-  ];
-  let records = sample.map(x=>({...x}));
-  function toast(msg){ let old=$('.toast'); if(old)old.remove(); const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.remove(),3200); }
-  function setPage(next){page=next; $$('.nav-button').forEach(b=>b.classList.toggle('active',b.dataset.page===page)); render();}
-  function statusPill(status){ const map={approved:['approved','Aprobado'],pending:['pending','Pendiente'],rejected:['rejected','Rechazado']}; const [cl,label]=map[status]||map.pending; return `<span class="pill ${cl}">${label}</span>`; }
-  function typeLabel(r){return `<span class="type ${r.type==='Ingreso'?'income':'expense'}">${r.type==='Ingreso'?'↙ Ingreso':'↗ Egreso'}</span>`;}
-  function approved(){return records.filter(r=>r.status==='approved');}
-  function sum(arr, test){return arr.filter(test).reduce((a,r)=>a+Number(r.amount||0),0);}
-  function fmtShort(s){return dateFmt(s).replace(' de ',' ');}
-  function pageHead(kicker,title,desc,action=''){return `<div class="page-head"><div><div class="eyebrow">${kicker}</div><h2>${title}</h2><p>${desc}</p></div>${action}</div>`;}
-  function render(){
-    $('#pendingNavCount').textContent=records.filter(r=>r.status==='pending').length;
-    const main=$('#main');
-    if(page==='dashboard') main.innerHTML=renderDashboard();
-    else if(page==='new') main.innerHTML=renderNew();
-    else if(page==='review') main.innerHTML=renderReview();
-    else if(page==='history') main.innerHTML=renderHistory();
-    bindPage();
-  }
-  function renderDashboard(){
-    const a=approved(), income=sum(a,r=>r.type==='Ingreso'), expense=sum(a,r=>r.type==='Egreso'), net=income-expense;
-    const pend=records.filter(r=>r.status==='pending').length;
-    const units=['Vanche','Camión JAC','Sunray'];
-    const fleet=units.map(v=>({name:v,income:sum(a,r=>r.vehicle===v&&r.type==='Ingreso'),expense:sum(a,r=>r.vehicle===v&&r.type==='Egreso')}));
-    const max=Math.max(1,...fleet.map(v=>Math.max(v.income,v.expense)));
-    const recent=[...a].sort((x,y)=>y.date.localeCompare(x.date)).slice(0,5);
-    return `${pageHead('Resumen general','Dashboard financiero','Vista consolidada de los movimientos que ya fueron aprobados.',`<button class="btn btn-primary" data-go="new">＋ Registrar movimiento</button>`)}
-      <div class="notice"><span style="font-size:20px">ⓘ</span><div><strong>Los importes pendientes no se incluyen en estos indicadores.</strong>Actualmente hay ${pend} movimiento(s) esperando revisión de administración.</div><button class="btn btn-sm" data-go="review" style="margin-left:auto;align-self:center">Revisar</button></div>
-      <section class="cards">
-        <div class="metric"><div class="metric-top"><span>Ingresos aprobados</span><span class="metric-icon">↙</span></div><div class="metric-value">${money(income)}</div><div class="metric-foot">Movimientos aceptados</div></div>
-        <div class="metric"><div class="metric-top"><span>Gastos aprobados</span><span class="metric-icon">↗</span></div><div class="metric-value">${money(expense)}</div><div class="metric-foot">Movimientos aceptados</div></div>
-        <div class="metric"><div class="metric-top"><span>Resultado neto</span><span class="metric-icon">◈</span></div><div class="metric-value" style="color:${net<0?'var(--red)':'var(--green)'}">${money(net)}</div><div class="metric-foot">Ingresos menos gastos aprobados</div></div>
-        <div class="metric"><div class="metric-top"><span>Por revisar</span><span class="metric-icon">◷</span></div><div class="metric-value">${pend}</div><div class="metric-foot">Pendientes de aprobación</div></div>
-      </section>
-      <section class="grid-two">
-        <div class="panel"><div class="panel-head"><div><h3>Resumen por vehículo</h3><p>Ingresos y egresos aprobados</p></div><span class="meta-chip">3 unidades</span></div>
-          ${fleet.map(v=>`<div style="margin:17px 0 20px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:800;margin-bottom:9px"><span>${v.name}</span><span>${money(v.income-v.expense)}</span></div><div class="bar-row" style="margin:8px 0"><span class="bar-label">Ingresos</span><div class="bar-track"><div class="bar-fill green" style="width:${Math.min(100,v.income/max*100)}%"></div></div><span class="bar-value">${money(v.income)}</span></div><div class="bar-row" style="margin:8px 0"><span class="bar-label">Gastos</span><div class="bar-track"><div class="bar-fill blue" style="width:${Math.min(100,v.expense/max*100)}%"></div></div><span class="bar-value">${money(v.expense)}</span></div></div>`).join('')}
-        </div>
-        <div class="panel"><div class="panel-head"><div><h3>Flujo de aprobación</h3><p>Estado actual de los registros</p></div></div>
-          ${[['Aprobados',records.filter(r=>r.status==='approved').length,'var(--green)'],['Pendientes',records.filter(r=>r.status==='pending').length,'var(--amber)'],['Rechazados',records.filter(r=>r.status==='rejected').length,'var(--red)']].map(([l,n,c])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)"><span style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700"><span style="width:9px;height:9px;border-radius:50%;background:${c}"></span>${l}</span><strong style="font-size:22px">${n}</strong></div>`).join('')}
-          <p class="footer-note">Los registros rechazados quedan en el historial, pero no afectan el resultado financiero.</p>
-        </div>
-      </section>
-      <section class="panel"><div class="panel-head"><div><h3>Movimientos aprobados recientes</h3><p>Últimas operaciones incluidas en el dashboard</p></div><button class="btn btn-sm" data-go="history">Ver historial →</button></div>
-        ${recent.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Vehículo</th><th>Responsable</th><th>Estado</th><th style="text-align:right">Importe</th></tr></thead><tbody>${recent.map(r=>`<tr><td>${fmtShort(r.date)}</td><td><strong>${r.description}</strong><div class="vehicle-tag">${r.category}</div></td><td>${r.vehicle}</td><td>${r.submitter}</td><td>${statusPill(r.status)}</td><td class="money" style="text-align:right;color:${r.type==='Ingreso'?'var(--green)':'var(--text)'}">${r.type==='Ingreso'?'+':'−'}${money(r.amount)}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">Todavía no hay movimientos aprobados.</div>`}
-      </section><div class="footer-note">Prototipo de demostración: los datos se mantienen en esta sesión y no se comparten entre usuarios reales.</div>`;
-  }
-  function renderNew(){
-    return `${pageHead('Registro de operaciones','Registrar movimiento','Completa los datos y adjunta evidencia. El movimiento quedará pendiente hasta que administración lo revise.')}
-      <form id="movementForm" class="panel">
-        <div class="panel-head"><div><h3>Datos del movimiento</h3><p>Los campos con * son obligatorios.</p></div><span class="pill pending">Requiere aprobación</span></div>
-        <div class="form-grid">
-          <div class="field"><label for="fType">Tipo de movimiento *</label><select id="fType" required><option value="Egreso">Egreso / gasto</option><option value="Ingreso">Ingreso</option></select></div>
-          <div class="field"><label for="fDate">Fecha de operación *</label><input id="fDate" type="date" value="${today()}" required></div>
-          <div class="field"><label for="fAmount">Importe (S/) *</label><input id="fAmount" type="number" min="0.01" step="0.01" placeholder="0.00" required></div>
-          <div class="field"><label for="fCategory">Categoría *</label><select id="fCategory" required><option>Combustible</option><option>Mantenimiento</option><option>Repuestos</option><option>Neumáticos</option><option>Servicio de transporte</option><option>Seguro / SOAT</option><option>Peajes</option><option>Lavado</option><option>Compras</option><option>Personal</option><option>Otros</option></select></div>
-          <div class="field"><label for="fVehicle">Vehículo asociado *</label><select id="fVehicle" required><option>Vanche</option><option>Camión JAC</option><option>Sunray</option><option>General / oficina</option></select></div>
-          <div class="field"><label for="fSubmitter">Registrado por *</label><select id="fSubmitter" required><option>Carlos</option><option>Junior</option><option>Jhonatan</option><option>Compras</option><option>Administración</option></select></div>
-          <div class="field"><label for="fVendor">Cliente / proveedor</label><input id="fVendor" placeholder="Nombre del cliente, grifo, taller…"></div>
-          <div class="field"><label for="fPayment">Medio de pago / cobro</label><select id="fPayment"><option>Efectivo</option><option>Yape / Plin</option><option>Transferencia</option><option>Tarjeta</option><option>Depósito</option><option>Pendiente</option><option>Otro</option></select></div>
-          <div class="field"><label for="fAccount">Caja / cuenta</label><select id="fAccount"><option>Caja chica</option><option>BCP</option><option>BBVA</option><option>Yape / Plin</option><option>Otra</option></select></div>
-          <div class="field"><label for="fDescription">Descripción breve *</label><input id="fDescription" placeholder="Ej. compra de aceite y filtro" required></div>
-          <div class="field full"><label for="fNotes">Detalle / justificación</label><textarea id="fNotes" placeholder="Explica para qué se realizó el gasto o a qué servicio corresponde…"></textarea></div>
-          <div class="field full"><label for="fEvidence">Evidencias (1 o 2 fotos)</label><div class="upload-box"><div style="font-size:24px;margin-bottom:6px">▧</div><strong>Adjunta boleta, factura, voucher o foto</strong><p class="hint">JPG, PNG o WEBP. En este prototipo las fotos se previsualizan localmente.</p><input id="fEvidence" type="file" accept="image/*" multiple><div id="previewList" class="preview-list"></div></div><div class="hint">Para un sistema real, la evidencia se almacenaría de forma segura y quedaría vinculada al registro.</div></div>
-        </div>
-        <div class="form-actions"><button type="button" class="btn" data-go="dashboard">Cancelar</button><button class="btn btn-primary" type="submit">Enviar para aprobación →</button></div>
-      </form><div class="footer-note">Al enviar, el movimiento no se contabiliza todavía en el dashboard. Administración deberá aprobarlo.</div>`;
-  }
-  function renderReview(){
-    const queue=records.filter(r=>r.status==='pending');
-    const current=queue.find(r=>r.id===selectedReview)||queue[0];
-    selectedReview=current?.id||null;
-    return `${pageHead('Control interno','Revisiones pendientes','Comprueba el importe, la descripción y las evidencias antes de aprobar o rechazar.',`<span class="pill pending">${queue.length} por revisar</span>`)}
-      ${role!=='approver'?`<div class="notice"><span style="font-size:20px">🔒</span><div><strong>Vista de colaborador</strong>Para probar el flujo de aprobación, cambia el rol a “Aprobador / Administración” en la parte superior.</div></div>`:''}
-      <div class="review-layout"><section>${queue.length?queue.map(r=>`<button class="review-card ${current&&current.id===r.id?'selected':''}" data-review-id="${r.id}" style="width:100%;text-align:left;color:inherit;cursor:pointer"><div class="review-title"><div><h4>${r.description}</h4><p>${r.submitter} · ${fmtShort(r.date)}</p></div><div class="review-amount">${money(r.amount)}</div></div><div class="review-meta"><span class="meta-chip">${r.type}</span><span class="meta-chip">${r.vehicle}</span><span class="meta-chip">${r.category}</span></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--muted)">${r.evidence?.length||0} evidencia(s) adjunta(s)</span>${statusPill(r.status)}</div></button>`).join(''):`<div class="panel empty"><div style="font-size:30px;margin-bottom:8px">✓</div><strong>Todo al día</strong><p>No hay movimientos pendientes de aprobación.</p></div>`}</section>
-      <section class="panel">${current?`<div class="panel-head"><div><h3>Detalle para revisión</h3><p>Movimiento #${current.id}</p></div>${statusPill(current.status)}</div><div class="review-title"><div><div class="eyebrow">${current.type}</div><h3 style="font-size:24px;margin:5px 0">${money(current.amount)}</h3></div></div><div class="detail-block"><h4>Descripción</h4><p>${escapeHtml(current.description)}</p></div><div class="detail-block"><h4>Información</h4><p><strong>Fecha:</strong> ${fmtShort(current.date)}<br><strong>Vehículo:</strong> ${current.vehicle}<br><strong>Categoría:</strong> ${current.category}<br><strong>Registrado por:</strong> ${current.submitter}<br><strong>Cliente / proveedor:</strong> ${current.vendor||'No indicado'}<br><strong>Medio de pago:</strong> ${current.payment||'No indicado'}<br><strong>Cuenta:</strong> ${current.account||'No indicada'}</p></div><div class="detail-block"><h4>Justificación</h4><p>${escapeHtml(current.notes||'Sin detalle adicional.')}</p></div><div class="detail-block"><h4>Evidencias adjuntas</h4>${current.evidence?.length?`<div class="evidence-grid">${current.evidence.map((src,i)=>`<a href="${src}" target="_blank" rel="noreferrer"><img src="${src}" alt="Evidencia ${i+1}"></a>`).join('')}</div>`:`<div class="evidence-placeholder">No se adjuntaron fotos en este ejemplo</div>`}</div>${role==='approver'&&current.status==='pending'?`<div class="approval-actions"><button class="btn btn-approve" data-approve="${current.id}">✓ Aprobar movimiento</button><button class="btn btn-reject" data-reject="${current.id}">✕ Rechazar</button></div><p class="hint" style="margin-top:10px">Al aprobar, el importe se suma a los indicadores del dashboard.</p>`:''}`:`<div class="empty">Selecciona un movimiento para revisar.</div>`}</section></div><div class="footer-note">Los botones de aprobación de este prototipo simulan el flujo. En producción deben guardar usuario, fecha, decisión y motivo de rechazo en un servidor.</div>`;
-  }
-  function renderHistory(){
-    let rows=[...records];
-    if(historyFilter!=='Todos') rows=rows.filter(r=>r.status===historyFilter.toLowerCase());
-    if(searchText) rows=rows.filter(r=>[r.description,r.vehicle,r.submitter,r.vendor,r.category,String(r.id)].join(' ').toLowerCase().includes(searchText.toLowerCase()));
-    rows.sort((a,b)=>b.date.localeCompare(a.date));
-    return `${pageHead('Trazabilidad','Historial de movimientos','Consulta cada registro, su estado y quién lo registró.',`<button class="btn btn-primary" data-go="new">＋ Nuevo movimiento</button>`)}
-      <div class="panel"><div class="filter-row"><input id="historySearch" placeholder="Buscar descripción, vehículo, persona…" value="${escapeHtml(searchText)}"><select id="historyFilter"><option ${historyFilter==='Todos'?'selected':''}>Todos</option><option ${historyFilter==='Aprobado'?'selected':''}>Aprobado</option><option ${historyFilter==='Pendiente'?'selected':''}>Pendiente</option><option ${historyFilter==='Rechazado'?'selected':''}>Rechazado</option></select><button class="btn btn-sm" id="clearFilters">Limpiar</button></div>
-      ${rows.length?`<div class="table-wrap"><table><thead><tr><th>ID / Fecha</th><th>Movimiento</th><th>Vehículo</th><th>Registrado por</th><th>Evidencias</th><th>Estado</th><th style="text-align:right">Importe</th></tr></thead><tbody>${rows.map(r=>`<tr><td><strong>#${r.id}</strong><div class="vehicle-tag">${fmtShort(r.date)}</div></td><td>${typeLabel(r)}<div style="font-weight:750;margin-top:5px">${escapeHtml(r.description)}</div><div class="vehicle-tag">${r.category}</div></td><td>${r.vehicle}</td><td>${r.submitter}</td><td>${r.evidence?.length||0} foto(s)</td><td>${statusPill(r.status)}</td><td class="money" style="text-align:right">${money(r.amount)}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">No se encontraron movimientos con esos filtros.</div>`}</div><div class="footer-note">Los registros rechazados se conservan para mantener trazabilidad y no se incluyen en el dashboard.</div>`;
-  }
-  function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-  function bindPage(){
-    $$('[data-go]').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.go)));
-    $$('[data-review-id]').forEach(b=>b.addEventListener('click',()=>{selectedReview=Number(b.dataset.reviewId);render();}));
-    $$('[data-approve]').forEach(b=>b.addEventListener('click',()=>decide(Number(b.dataset.approve),'approved')));
-    $$('[data-reject]').forEach(b=>b.addEventListener('click',()=>decide(Number(b.dataset.reject),'rejected')));
-    const form=$('#movementForm');
-    if(form){
-      const input=$('#fEvidence');
-      input.addEventListener('change',()=>{
-        const files=[...input.files];
-        if(files.length>2){toast('Puedes adjuntar como máximo 2 fotos.');input.value='';draftEvidence=[];$('#previewList').innerHTML='';return;}
-        if(files.some(f=>!f.type.startsWith('image/'))){toast('Adjunta archivos de imagen.');input.value='';return;}
-        draftEvidence=[];
-        Promise.all(files.map(file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({name:file.name,src:reader.result});reader.onerror=reject;reader.readAsDataURL(file);}))).then(items=>{draftEvidence=items;$('#previewList').innerHTML=items.map(it=>`<div class="preview-item"><img src="${it.src}" alt="Vista previa"><span>${escapeHtml(it.name)}</span></div>`).join('');});
-      });
-      form.addEventListener('submit',e=>{
-        e.preventDefault();
-        const amount=Number($('#fAmount').value);
-        if(!Number.isFinite(amount)||amount<=0){toast('Ingresa un importe mayor que cero.');return;}
-        const item={id:Math.max(1000,...records.map(r=>r.id))+1,date:$('#fDate').value,type:$('#fType').value,category:$('#fCategory').value,vehicle:$('#fVehicle').value,amount,description:$('#fDescription').value.trim(),vendor:$('#fVendor').value.trim(),account:$('#fAccount').value,payment:$('#fPayment').value,submitter:$('#fSubmitter').value,status:'pending',submitted:new Date().toISOString(),reviewer:'',reviewed:'',notes:$('#fNotes').value.trim(),evidence:draftEvidence.map(x=>x.src)};
-        if(!item.description||!item.date){toast('Completa los campos obligatorios.');return;}
-        records.unshift(item);draftEvidence=[];selectedReview=item.id;toast('Movimiento enviado. Quedó pendiente de aprobación.');setPage('review');
-      });
-    }
-    const hs=$('#historySearch'); if(hs) hs.addEventListener('input',e=>{searchText=e.target.value;const pos=e.target.selectionStart;render();const n=$('#historySearch');n.focus();n.setSelectionRange(pos,pos);});
-    const hf=$('#historyFilter'); if(hf) hf.addEventListener('change',e=>{historyFilter=e.target.value;render();});
-    const clear=$('#clearFilters'); if(clear) clear.addEventListener('click',()=>{searchText='';historyFilter='Todos';render();});
-  }
-  function decide(id,status){
-    if(role!=='approver'){toast('Cambia al rol Aprobador / Administración para decidir.');return;}
-    const item=records.find(r=>r.id===id);if(!item||item.status!=='pending')return;
-    if(status==='rejected'&&!confirm('¿Confirmas rechazar este movimiento? En un sistema real se debería registrar el motivo.'))return;
-    item.status=status;item.reviewer='Administración';item.reviewed=new Date().toISOString();
-    toast(status==='approved'?'Movimiento aprobado e incluido en el dashboard.':'Movimiento rechazado; no se incluirá en el dashboard.');
-    selectedReview=null;render();
-  }
-  $('#roleSelect').addEventListener('change',e=>{role=e.target.value;toast(role==='approver'?'Modo de demostración: aprobador activado.':'Modo de demostración: colaborador activado.');render();});
-  $$('.nav-button').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
-  render();
-})();
-</script>
+
+<!-- MODAL Y TOAST -->
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script src="app.js"></script>
 </body>
 </html>
