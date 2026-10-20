@@ -78,3 +78,387 @@
       return;
     }
     $('#loginScreen').class
+(() => {
+  'use strict';
+
+  const $ = (s, root = document) => root.querySelector(s);
+  const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+  const money = n => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(Number(n) || 0);
+  const dateFmt = s => { if (!s) return '—'; const d = new Date(s + 'T12:00:00'); return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }); };
+  const today = () => new Date().toISOString().slice(0, 10);
+  const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ================= CATÁLOGOS =================
+  const CATEGORIES = {
+    expense: ['Combustible','Mantenimiento','Repuestos','Neumáticos','Peajes','Lavado','Seguro / SOAT','Revisión técnica','Compras','Personal','Otro'],
+    income:  ['Servicio de transporte','Fletes / carga','Alquiler de unidad','Otro']
+  };
+  const VEHICLES = ['Vanche', 'Camión JAC', 'Sunray', 'General / oficina'];
+  const USERS = [
+    { id: 'carlos',   name: 'Carlos',         role: 'employee' },
+    { id: 'junior',   name: 'Junior',         role: 'employee' },
+    { id: 'jhonatan', name: 'Jhonatan',       role: 'employee' },
+    { id: 'admin',    name: 'Administración', role: 'approver' }
+  ];
+  const DEMO_PIN = '1234';
+
+  // ================= ESTADO =================
+  let currentUser = null;
+  let page = 'dashboard';
+  let selectedReview = null;
+  let historyFilter = 'Todos';
+  let searchText = '';
+  let draftEvidence = [];
+  let toastTimer;
+
+  // ================= DATOS DEMO =================
+  let records = [
+    { id: 1001, date: '2026-10-17', type: 'Egreso',  category: 'Combustible',   customCategory: '', vehicle: 'Camión JAC', amount: 183.10, description: 'Abastecimiento para servicio a Lima', vendor: 'Grifo Lima Norte', account: 'Caja chica', payment: 'Efectivo', submitter: 'Carlos',   status: 'approved',  notes: 'Combustible para recorrido programado.', evidence: [], rejectionReason: '' },
+    { id: 1002, date: '2026-10-18', type: 'Ingreso', category: 'Servicio de transporte', customCategory: '', vehicle: 'Vanche', amount: 800, description: 'Servicio de transporte a Chala', vendor: 'Cliente de servicio', account: 'BCP', payment: 'Transferencia', submitter: 'Junior', status: 'approved', notes: 'Servicio completado.', evidence: [], rejectionReason: '' },
+    { id: 1003, date: '2026-10-19', type: 'Egreso',  category: 'Repuestos',     customCategory: '', vehicle: 'Vanche', amount: 250, description: 'Compra de repuestos menores', vendor: 'Repuestos Central', account: 'Yape / Plin', payment: 'Yape / Plin', submitter: 'Carlos', status: 'pending', notes: 'Repuestos para revisión del sistema de frenos.', evidence: [], rejectionReason: '' },
+    { id: 1004, date: '2026-10-19', type: 'Egreso',  category: 'Mantenimiento', customCategory: '', vehicle: 'Camión JAC', amount: 320, description: 'Cambio de aceite y filtro', vendor: 'Taller JAC', account: 'Caja chica', payment: 'Efectivo', submitter: 'Jhonatan', status: 'pending', notes: 'Mantenimiento periódico. Confirmar kilometraje.', evidence: [], rejectionReason: '' },
+    { id: 1005, date: '2026-10-16', type: 'Egreso',  category: 'Peajes',        customCategory: '', vehicle: 'Sunray', amount: 45, description: 'Peajes de recorrido', vendor: 'Peajes ruta sur', account: 'Caja chica', payment: 'Efectivo', submitter: 'Junior', status: 'rejected', notes: 'Falta evidencia legible del pago.', evidence: [], rejectionReason: 'La foto adjunta está borrosa, no se lee el monto.' }
+  ];
+
+  // ================= UTILIDADES UI =================
+  function toast(msg, type = '') { 
+    let old = $('.toast'); if (old) old.remove(); 
+    const el = document.createElement('div'); 
+    el.className = `toast ${type}`; 
+    el.textContent = msg; 
+    $('#toastRoot').appendChild(el); 
+    clearTimeout(toastTimer); 
+    toastTimer = setTimeout(() => el.remove(), 3200); 
+  }
+
+  function statusPill(status) { 
+    const map = { approved: ['approved','Aprobado'], pending: ['pending','Pendiente'], rejected: ['rejected','Rechazado'] }; 
+    const [cl, label] = map[status] || map.pending; 
+    return `<span class="pill ${cl}">${label}</span>`; 
+  }
+
+  function pageHead(kicker, title, desc, action = '') {
+    return `<div class="page-head"><div><div class="eyebrow">${kicker}</div><h2>${title}</h2><p>${desc}</p></div>${action}</div>`;
+  }
+
+  function closeModal() { $('#modalRoot').innerHTML = ''; }
+  function openModal(html) {
+    $('#modalRoot').innerHTML = `<div class="modal-backdrop" id="modalBackdrop"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+    $('#modalBackdrop').addEventListener('click', closeModal);
+    $$('.modal-close', $('#modalRoot')).forEach(b => b.addEventListener('click', closeModal));
+  }
+
+  function openLightbox(src) {
+    const lb = document.createElement('div');
+    lb.className = 'lightbox';
+    lb.innerHTML = `<button class="lightbox-close">✕</button><img src="${src}" alt="Evidencia">`;
+    lb.addEventListener('click', () => lb.remove());
+    document.body.appendChild(lb);
+  }
+
+  // ================= NAVEGACIÓN =================
+  function setPage(next) { 
+    page = next; 
+    $$('.nav-button').forEach(b => b.classList.toggle('active', b.dataset.page === page)); 
+    render(); 
+  }
+
+  // ================= RENDERIZADO PRINCIPAL =================
+  function render() {
+    if (!currentUser) {
+      $('#loginScreen').classList.remove('hidden');
+      $('#app').classList.add('hidden');
+      return;
+    }
+    $('#loginScreen').classList.add('hidden');
+    $('#app').classList.remove('hidden');
+    
+    $('#userChip').textContent = `${currentUser.name} · ${currentUser.role === 'approver' ? 'Admin' : 'Colaborador'}`;
+    $('#pendingNavCount').textContent = records.filter(r => r.status === 'pending').length;
+    
+    const main = $('#main');
+    if (page === 'dashboard') main.innerHTML = renderDashboard();
+    else if (page === 'new') main.innerHTML = renderNew();
+    else if (page === 'review') main.innerHTML = renderReview();
+    else if (page === 'history') main.innerHTML = renderHistory();
+    
+    bindPage();
+  }
+
+  // ================= DASHBOARD =================
+  function renderDashboard() {
+    const approved = records.filter(r => r.status === 'approved');
+    const income = approved.filter(r => r.type === 'Ingreso').reduce((a, r) => a + Number(r.amount), 0);
+    const expense = approved.filter(r => r.type === 'Egreso').reduce((a, r) => a + Number(r.amount), 0);
+    const net = income - expense;
+    const pending = records.filter(r => r.status === 'pending').length;
+
+    const fleet = VEHICLES.map(v => ({
+      name: v,
+      income: approved.filter(r => r.vehicle === v && r.type === 'Ingreso').reduce((a, r) => a + Number(r.amount), 0),
+      expense: approved.filter(r => r.vehicle === v && r.type === 'Egreso').reduce((a, r) => a + Number(r.amount), 0)
+    })).filter(v => v.income > 0 || v.expense > 0);
+    
+    const max = Math.max(1, ...fleet.map(v => Math.max(v.income, v.expense)));
+    const recent = [...approved].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+
+    return `${pageHead('Resumen general', 'Dashboard financiero', 'Vista consolidada de los movimientos aprobados.', `<button class="btn btn-primary" data-go="new">＋ Registrar</button>`)}
+      <div class="notice"><span style="font-size:20px">ⓘ</span><div><strong>Los montos pendientes no suman en los indicadores.</strong>Hay ${pending} movimiento(s) esperando revisión.</div><button class="btn btn-sm" data-go="review" style="margin-left:auto;align-self:center">Revisar</button></div>
+      <section class="cards">
+        <div class="metric"><div class="metric-top"><span>Ingresos aprobados</span><span class="metric-icon">↙</span></div><div class="metric-value">${money(income)}</div><div class="metric-foot">Movimientos aceptados</div></div>
+        <div class="metric"><div class="metric-top"><span>Gastos aprobados</span><span class="metric-icon">↗</span></div><div class="metric-value">${money(expense)}</div><div class="metric-foot">Movimientos aceptados</div></div>
+        <div class="metric"><div class="metric-top"><span>Resultado neto</span><span class="metric-icon">◈</span></div><div class="metric-value" style="color:${net < 0 ? 'var(--danger)' : 'var(--success)'}">${money(net)}</div><div class="metric-foot">Ingresos menos gastos aprobados</div></div>
+        <div class="metric"><div class="metric-top"><span>Por revisar</span><span class="metric-icon">◷</span></div><div class="metric-value">${pending}</div><div class="metric-foot">Pendientes de aprobación</div></div>
+      </section>
+      <section class="grid-two">
+        <div class="panel"><div class="panel-head"><div><h3>Resumen por vehículo</h3><p>Ingresos y egresos aprobados</p></div></div>
+          ${fleet.map(v => `<div style="margin:17px 0 20px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:800;margin-bottom:9px"><span>${v.name}</span><span>${money(v.income - v.expense)}</span></div><div class="bar-row" style="margin:8px 0"><span class="bar-label">Ingresos</span><div class="bar-track"><div class="bar-fill income" style="width:${Math.min(100, v.income / max * 100)}%"></div></div><span class="bar-value">${money(v.income)}</span></div><div class="bar-row" style="margin:8px 0"><span class="bar-label">Gastos</span><div class="bar-track"><div class="bar-fill expense" style="width:${Math.min(100, v.expense / max * 100)}%"></div></div><span class="bar-value">${money(v.expense)}</span></div></div>`).join('')}
+        </div>
+        <div class="panel"><div class="panel-head"><div><h3>Flujo de aprobación</h3><p>Estado actual de los registros</p></div></div>
+          ${[['Aprobados', records.filter(r => r.status === 'approved').length, 'var(--success)'], ['Pendientes', records.filter(r => r.status === 'pending').length, 'var(--warning)'], ['Rechazados', records.filter(r => r.status === 'rejected').length, 'var(--danger)']].map(([l, n, c]) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--line)"><span style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700"><span style="width:9px;height:9px;border-radius:50%;background:${c}"></span>${l}</span><strong style="font-size:22px">${n}</strong></div>`).join('')}
+        </div>
+      </section>
+      <section class="panel"><div class="panel-head"><div><h3>Movimientos recientes</h3><p>Últimas operaciones aprobadas</p></div><button class="btn btn-sm" data-go="history">Ver historial →</button></div>
+        ${recent.length ? `<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Vehículo</th><th>Responsable</th><th>Estado</th><th style="text-align:right">Importe</th></tr></thead><tbody>${recent.map(r => `<tr onclick="window.dispatchEvent(new CustomEvent('viewDetail', {detail: ${r.id}}))"><td>${dateFmt(r.date)}</td><td><strong>${escapeHtml(r.description)}</strong><div class="vehicle-tag">${r.category}</div></td><td>${r.vehicle}</td><td>${r.submitter}</td><td>${statusPill(r.status)}</td><td class="money" style="text-align:right;color:${r.type === 'Ingreso' ? 'var(--success)' : 'var(--ink)'}">${r.type === 'Ingreso' ? '+' : '−'}${money(r.amount)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="empty">No hay movimientos aprobados.</div>`}
+      </section>`;
+  }
+
+  // ================= REGISTRAR =================
+  function renderNew() {
+    return `${pageHead('Registro de operaciones', 'Registrar movimiento', 'Completa los datos y adjunta evidencia. Quedará pendiente hasta ser revisado.')}
+      <form id="movementForm" class="panel">
+        <div class="panel-head"><div><h3>Datos del movimiento</h3><p>* Campos obligatorios</p></div></div>
+        <div class="form-grid">
+          <div class="field"><label for="fType">Tipo *</label><select id="fType" required><option value="Egreso">Egreso / Gasto</option><option value="Ingreso">Ingreso</option></select></div>
+          <div class="field"><label for="fDate">Fecha *</label><input id="fDate" type="date" value="${today()}" required></div>
+          <div class="field"><label for="fAmount">Importe (S/) *</label><input id="fAmount" type="number" min="0.01" step="0.01" placeholder="0.00" required></div>
+          <div class="field"><label for="fCategory">Categoría *</label><select id="fCategory" required></select></div>
+          <div class="field" id="customCatWrap" style="display:none"><label for="fCustomCategory">Especifique categoría *</label><input id="fCustomCategory" placeholder="Ej. Pintura, trámites..."></div>
+          <div class="field"><label for="fVehicle">Vehículo *</label><select id="fVehicle" required>${VEHICLES.map(v => `<option>${v}</option>`).join('')}</select></div>
+          <div class="field"><label for="fVendor">Proveedor / Cliente</label><input id="fVendor" placeholder="Opcional"></div>
+          <div class="field"><label for="fPayment">Medio de pago</label><select id="fPayment"><option>Efectivo</option><option>Yape / Plin</option><option>Transferencia</option><option>Tarjeta</option><option>Otro</option></select></div>
+          <div class="field full"><label for="fDescription">Descripción *</label><input id="fDescription" placeholder="Ej. Compra de repuestos" required></div>
+          <div class="field full"><label for="fNotes">Notas adicionales</label><textarea id="fNotes" placeholder="Opcional..."></textarea></div>
+          <div class="field full"><label for="fEvidence">Evidencias (Fotos)</label><div class="upload-box"><input id="fEvidence" type="file" accept="image/*" multiple><div id="previewList" class="preview-list"></div></div></div>
+        </div>
+        <div class="form-actions"><button type="button" class="btn" data-go="dashboard">Cancelar</button><button class="btn btn-primary" type="submit">Enviar a revisión</button></div>
+      </form>`;
+  }
+
+  // ================= REVISIÓN =================
+  function renderReview() {
+    const queue = records.filter(r => r.status === 'pending');
+    const current = queue.find(r => r.id === selectedReview) || queue[0];
+    selectedReview = current ? current.id : null;
+
+    return `${pageHead('Control interno', 'Revisiones', 'Revisa las evidencias antes de aprobar o rechazar.', `<span class="pill pending">${queue.length} pendientes</span>`)}
+      ${currentUser.role !== 'approver' ? `<div class="notice"><span style="font-size:20px">🔒</span><div><strong>Modo Colaborador.</strong>Inicia sesión como "Administración" para aprobar.</div></div>` : ''}
+      <div class="review-layout">
+        <section>
+          ${queue.length ? queue.map(r => `<button class="review-card ${current && current.id === r.id ? 'selected' : ''}" data-review-id="${r.id}"><div class="review-title"><div><h4>${escapeHtml(r.description)}</h4><p>${r.submitter} · ${dateFmt(r.date)}</p></div><div class="review-amount">${money(r.amount)}</div></div><div class="review-meta"><span class="meta-chip">${r.type}</span><span class="meta-chip">${r.vehicle}</span><span class="meta-chip">${r.category}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted)">${r.evidence?.length || 0} fotos</span>${statusPill(r.status)}</div></button>`).join('') : `<div class="panel empty"><div class="big">✓</div><strong>Todo al día</strong><p>No hay pendientes.</p></div>`}
+        </section>
+        <section class="panel">
+          ${current ? `
+            <div class="panel-head"><div><h3>Detalle #${current.id}</h3></div>${statusPill(current.status)}</div>
+            <div class="review-title"><div class="eyebrow">${current.type}</div><h3 style="font-size:24px;margin:5px 0">${money(current.amount)}</h3></div>
+            <div class="detail-block"><h4>Descripción</h4><p>${escapeHtml(current.description)}</p></div>
+            <div class="detail-block"><h4>Información</h4><p><strong>Vehículo:</strong> ${current.vehicle}<br><strong>Registrado por:</strong> ${current.submitter}<br><strong>Proveedor:</strong> ${current.vendor || '—'}<br><strong>Notas:</strong> ${escapeHtml(current.notes || '—')}</p></div>
+            <div class="detail-block"><h4>Evidencias</h4>
+              ${current.evidence?.length ? `<div class="evidence-grid">${current.evidence.map(src => `<div class="evidence-thumb" data-img="${src}"><img src="${src}" alt="Evidencia"></div>`).join('')}</div>` : `<div class="evidence-placeholder">Sin fotos</div>`}
+            </div>
+            ${currentUser.role === 'approver' && current.status === 'pending' ? `<div class="approval-actions"><button class="btn btn-approve" data-approve="${current.id}">✓ Aprobar</button><button class="btn btn-reject" data-reject="${current.id}">✕ Rechazar</button></div>` : ''}
+          ` : `<div class="empty">Selecciona un movimiento.</div>`}
+        </section>
+      </div>`;
+  }
+
+  // ================= HISTORIAL =================
+  function renderHistory() {
+    let rows = [...records];
+    if (historyFilter !== 'Todos') rows = rows.filter(r => r.status === historyFilter.toLowerCase());
+    if (searchText) rows = rows.filter(r => [r.description, r.vehicle, r.submitter, r.vendor, r.category].join(' ').toLowerCase().includes(searchText.toLowerCase()));
+    
+    rows.sort((a, b) => b.date.localeCompare(a.date));
+
+    return `${pageHead('Trazabilidad', 'Historial', 'Consulta y audita todos los movimientos.')}
+      <div class="panel">
+        <div class="filter-row">
+          <input id="historySearch" placeholder="Buscar..." value="${escapeHtml(searchText)}">
+          <select id="historyFilter"><option ${historyFilter === 'Todos' ? 'selected' : ''}>Todos</option><option ${historyFilter === 'Aprobado' ? 'selected' : ''}>Aprobado</option><option ${historyFilter === 'Pendiente' ? 'selected' : ''}>Pendiente</option><option ${historyFilter === 'Rechazado' ? 'selected' : ''}>Rechazado</option></select>
+          <button class="btn btn-sm" id="clearFilters">Limpiar</button>
+        </div>
+        ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>ID / Fecha</th><th>Detalle</th><th>Vehículo</th><th>Estado</th><th style="text-align:right">Importe</th></tr></thead><tbody>
+          ${rows.map(r => `<tr onclick="window.dispatchEvent(new CustomEvent('viewDetail', {detail: ${r.id}}))">
+            <td><strong>#${r.id}</strong><div class="vehicle-tag">${dateFmt(r.date)}</div></td>
+            <td><strong>${escapeHtml(r.description)}</strong><div class="vehicle-tag">${r.category} · ${r.submitter}</div></td>
+            <td>${r.vehicle}</td>
+            <td>${statusPill(r.status)}</td>
+            <td class="money" style="text-align:right">${money(r.amount)}</td>
+          </tr>`).join('')}
+        </tbody></table></div>` : `<div class="empty">No se encontraron movimientos.</div>`}
+      </div>`;
+  }
+
+  // ================= LÓGICA Y EVENTOS =================
+  function bindPage() {
+    $$('[data-go]').forEach(b => b.addEventListener('click', () => setPage(b.dataset.go)));
+    
+    // Revisión
+    $$('[data-review-id]').forEach(b => b.addEventListener('click', () => { selectedReview = Number(b.dataset.reviewId); render(); }));
+    $$('[data-approve]').forEach(b => b.addEventListener('click', () => decide(Number(b.dataset.approve), 'approved')));
+    $$('[data-reject]').forEach(b => b.addEventListener('click', () => promptReject(Number(b.dataset.reject))));
+    $$('.evidence-thumb').forEach(b => b.addEventListener('click', () => openLightbox(b.dataset.img)));
+
+    // Formulario Nuevo
+    const form = $('#movementForm');
+    if (form) {
+      const typeSel = $('#fType');
+      const catSel = $('#fCategory');
+      const customWrap = $('#customCatWrap');
+      const customInput = $('#fCustomCategory');
+      const inputEv = $('#fEvidence');
+
+      const updateCats = () => {
+        const type = typeSel.value === 'Ingreso' ? 'income' : 'expense';
+        catSel.innerHTML = CATEGORIES[type].map(c => `<option value="${c}">${c}</option>`).join('');
+        customWrap.style.display = catSel.value === 'Otro' ? 'flex' : 'none';
+      };
+      typeSel.addEventListener('change', updateCats);
+      catSel.addEventListener('change', () => { customWrap.style.display = catSel.value === 'Otro' ? 'flex' : 'none'; });
+      updateCats();
+
+      inputEv.addEventListener('change', () => {
+        const files = [...inputEv.files];
+        if (files.length > 3) { toast('Máximo 3 fotos permitidas.', 'error'); inputEv.value = ''; return; }
+        draftEvidence = [];
+        Promise.all(files.map(f => new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); }))).then(urls => {
+          draftEvidence = urls;
+          $('#previewList').innerHTML = urls.map(u => `<div class="preview-item"><img src="${u}"></div>`).join('');
+        });
+      });
+
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const amount = Number($('#fAmount').value);
+        if (!amount || amount <= 0) return toast('Importe inválido.', 'error');
+        
+        const isOther = catSel.value === 'Otro';
+        const finalCat = isOther ? customInput.value.trim() : catSel.value;
+        if (isOther && !finalCat) return toast('Especifique la categoría "Otro".', 'error');
+
+        const newRecord = {
+          id: Math.max(1000, ...records.map(r => r.id)) + 1,
+          date: $('#fDate').value,
+          type: typeSel.value,
+          category: isOther ? 'Otro' : finalCat,
+          customCategory: isOther ? finalCat : '',
+          vehicle: $('#fVehicle').value,
+          amount: amount,
+          description: $('#fDescription').value.trim(),
+          vendor: $('#fVendor').value.trim(),
+          account: 'Caja', 
+          payment: $('#fPayment').value,
+          submitter: currentUser.name,
+          status: 'pending',
+          notes: $('#fNotes').value.trim(),
+          evidence: draftEvidence,
+          rejectionReason: ''
+        };
+        records.push(newRecord);
+        toast('Movimiento registrado y enviado a revisión.', 'success');
+        setPage('review');
+      });
+    }
+
+    // Historial
+    const hs = $('#historySearch');
+    if (hs) hs.addEventListener('input', e => { searchText = e.target.value; render(); $('#historySearch').focus(); });
+    const hf = $('#historyFilter');
+    if (hf) hf.addEventListener('change', e => { historyFilter = e.target.value; render(); });
+    const clear = $('#clearFilters');
+    if (clear) clear.addEventListener('click', () => { searchText = ''; historyFilter = 'Todos'; render(); });
+  }
+
+  // ================= MODALES =================
+  function promptReject(id) {
+    if (currentUser.role !== 'approver') return toast('No tienes permisos.', 'error');
+    openModal(`
+      <div class="modal-head"><h3>Rechazar movimiento #${id}</h3><button class="modal-close">✕</button></div>
+      <div class="modal-body">
+        <div class="field"><label>Motivo del rechazo (Obligatorio)</label><textarea id="rejectReason" placeholder="Ej. La foto no es legible, el monto no coincide..."></textarea></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="document.getElementById('modalRoot').innerHTML=''">Cancelar</button>
+        <button class="btn btn-reject" id="confirmRejectBtn">Confirmar Rechazo</button>
+      </div>
+    `);
+    $('#confirmRejectBtn').addEventListener('click', () => {
+      const reason = $('#rejectReason').value.trim();
+      if (!reason) return toast('El motivo es obligatorio.', 'error');
+      decide(id, 'rejected', reason);
+      closeModal();
+    });
+  }
+
+  function decide(id, status, reason = '') {
+    const item = records.find(r => r.id === id);
+    if (!item || item.status !== 'pending') return;
+    item.status = status;
+    item.reviewer = currentUser.name;
+    item.rejectionReason = reason;
+    toast(status === 'approved' ? 'Movimiento aprobado.' : 'Movimiento rechazado.', status === 'approved' ? 'success' : '');
+    selectedReview = null;
+    render();
+  }
+
+  // Evento global para abrir detalles (desde el dashboard o historial)
+  window.addEventListener('viewDetail', e => {
+    const item = records.find(r => r.id === e.detail);
+    if (!item) return;
+    openModal(`
+      <div class="modal-head"><h3>Detalle #${item.id}</h3><button class="modal-close">✕</button></div>
+      <div class="modal-body">
+        <div class="review-title"><div><div class="eyebrow">${item.type}</div><h3 style="font-size:28px;margin:5px 0">${money(item.amount)}</h3></div>${statusPill(item.status)}</div>
+        <div class="detail-block"><h4>Descripción</h4><p>${escapeHtml(item.description)}</p></div>
+        <div class="detail-block"><h4>Información</h4><p>
+          <strong>Fecha:</strong> ${dateFmt(item.date)}<br>
+          <strong>Vehículo:</strong> ${item.vehicle}<br>
+          <strong>Categoría:</strong> ${item.category} ${item.customCategory ? `(${item.customCategory})` : ''}<br>
+          <strong>Registrado por:</strong> ${item.submitter}<br>
+          <strong>Proveedor:</strong> ${item.vendor || '—'}<br>
+          <strong>Medio de pago:</strong> ${item.payment}
+        </p></div>
+        <div class="detail-block"><h4>Notas</h4><p>${escapeHtml(item.notes || 'Sin notas adicionales.')}</p></div>
+        ${item.status === 'rejected' && item.rejectionReason ? `<div class="notice" style="background:var(--danger-soft);border-color:#F0C0C0;color:var(--danger)"><span style="font-size:20px">✕</span><div><strong>Motivo del rechazo:</strong>${escapeHtml(item.rejectionReason)}</div></div>` : ''}
+        <div class="detail-block"><h4>Evidencias</h4>
+          ${item.evidence?.length ? `<div class="evidence-grid">${item.evidence.map(src => `<div class="evidence-thumb" onclick="event.stopPropagation()" data-img="${src}"><img src="${src}"></div>`).join('')}</div>` : `<div class="evidence-placeholder">No se adjuntaron fotos.</div>`}
+        </div>
+      </div>
+      <div class="modal-foot"><button class="btn" onclick="document.getElementById('modalRoot').innerHTML=''">Cerrar</button></div>
+    `);
+    // Bind lightbox a las fotos del modal
+    $$('.evidence-thumb', $('#modalRoot')).forEach(b => b.addEventListener('click', () => openLightbox(b.dataset.img)));
+  });
+
+  // ================= AUTH & GLOBAL =================
+  $('#loginForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const user = USERS.find(u => u.id === $('#loginUser').value);
+    const pin = $('#loginPin').value;
+    if (!user || pin !== DEMO_PIN) return toast('Usuario o PIN incorrecto (Demo: 1234).', 'error');
+    currentUser = user;
+    setPage('dashboard');
+  });
+
+  $('#logoutBtn').addEventListener('click', () => {
+    currentUser = null;
+    $('#loginUser').value = '';
+    $('#loginPin').value = '';
+    render();
+  });
+
+  $$('.nav-button').forEach(b => b.addEventListener('click', () => setPage(b.dataset.page)));
+
+  // Iniciar
+  render();
+})();
