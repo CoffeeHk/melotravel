@@ -1,243 +1,365 @@
-:root {
-  --brand: #C8102E;
-  --brand-dark: #A00D25;
-  --brand-soft: #FDECEF;
-  --ink: #111111;
-  --ink-soft: #2B2B2B;
-  --muted: #6B6B6B;
-  --line: #E5E5E5;
-  --bg: #FAFAFA;
-  --surface: #FFFFFF;
-  --surface-soft: #F4F4F5;
+(() => {
+  'use strict';
 
-  --success: #1B7F3A;
-  --success-soft: #E5F5EA;
-  --warning: #B8860B;
-  --warning-soft: #FFF6DE;
-  --danger: #8B0000;
-  --danger-soft: #FBE9E9;
+  const $ = (s, root = document) => root.querySelector(s);
+  const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+  const money = n => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(Number(n) || 0);
+  const dateFmt = s => { if (!s) return '—'; const d = new Date(s + 'T12:00:00'); return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }); };
+  const today = () => new Date().toISOString().slice(0, 10);
+  const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  --radius: 14px;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
-  --shadow: 0 2px 8px rgba(0,0,0,.06);
-  --shadow-lg: 0 12px 40px rgba(0,0,0,.14);
+  const CATEGORIES = {
+    expense: ['Combustible','Mantenimiento','Repuestos','Neumáticos','Peajes','Lavado','Seguro / SOAT','Revisión técnica','Compras','Personal','Otro'],
+    income:  ['Servicio de transporte','Fletes / carga','Alquiler de unidad','Otro']
+  };
+  const VEHICLES = ['Vanche', 'Camión JAC', 'Sunray', 'General / oficina'];
+  const USERS = [
+    { id: 'carlos',   name: 'Carlos',         role: 'employee' },
+    { id: 'junior',   name: 'Junior',         role: 'employee' },
+    { id: 'jhonatan', name: 'Jhonatan',       role: 'employee' },
+    { id: 'admin',    name: 'Administración', role: 'approver' }
+  ];
+  const DEMO_PIN = '1234';
 
-  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-}
+  let currentUser = null;
+  let page = 'dashboard';
+  let selectedReview = null;
+  let historyFilter = 'Todos';
+  let searchText = '';
+  let draftEvidence = [];
+  let toastTimer;
 
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body { font-family: var(--font); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
-button, input, select, textarea { font: inherit; color: inherit; }
-button { cursor: pointer; border: 0; background: none; }
-.hidden { display: none !important; }
+  let records = [
+    { id: 1001, date: '2026-10-17', type: 'Egreso',  category: 'Combustible',   customCategory: '', vehicle: 'Camión JAC', amount: 183.10, description: 'Abastecimiento para servicio a Lima', vendor: 'Grifo Lima Norte', account: 'Caja chica', payment: 'Efectivo', submitter: 'Carlos',   status: 'approved',  notes: 'Combustible para recorrido programado.', evidence: [], rejectionReason: '' },
+    { id: 1002, date: '2026-10-18', type: 'Ingreso', category: 'Servicio de transporte', customCategory: '', vehicle: 'Vanche', amount: 800, description: 'Servicio de transporte a Chala', vendor: 'Cliente de servicio', account: 'BCP', payment: 'Transferencia', submitter: 'Junior', status: 'approved', notes: 'Servicio completado.', evidence: [], rejectionReason: '' },
+    { id: 1003, date: '2026-10-19', type: 'Egreso',  category: 'Repuestos',     customCategory: '', vehicle: 'Vanche', amount: 250, description: 'Compra de repuestos menores', vendor: 'Repuestos Central', account: 'Yape / Plin', payment: 'Yape / Plin', submitter: 'Carlos', status: 'pending', notes: 'Repuestos para revisión del sistema de frenos.', evidence: [], rejectionReason: '' },
+    { id: 1004, date: '2026-10-19', type: 'Egreso',  category: 'Mantenimiento', customCategory: '', vehicle: 'Camión JAC', amount: 320, description: 'Cambio de aceite y filtro', vendor: 'Taller JAC', account: 'Caja chica', payment: 'Efectivo', submitter: 'Jhonatan', status: 'pending', notes: 'Mantenimiento periódico. Confirmar kilometraje.', evidence: [], rejectionReason: '' },
+    { id: 1005, date: '2026-10-16', type: 'Egreso',  category: 'Peajes',        customCategory: '', vehicle: 'Sunray', amount: 45, description: 'Peajes de recorrido', vendor: 'Peajes ruta sur', account: 'Caja chica', payment: 'Efectivo', submitter: 'Junior', status: 'rejected', notes: 'Falta evidencia legible del pago.', evidence: [], rejectionReason: 'La foto adjunta está borrosa, no se lee el monto.' }
+  ];
 
-/* LOGIN */
-.login-screen {
-  min-height: 100vh; display: grid; place-items: center; padding: 24px;
-  background: radial-gradient(circle at 20% 20%, rgba(200,16,46,.08), transparent 40%), radial-gradient(circle at 80% 80%, rgba(0,0,0,.06), transparent 40%), var(--bg);
-}
-.login-card { width: 100%; max-width: 400px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 40px 32px; box-shadow: var(--shadow-lg); }
-.login-brand { text-align: center; margin-bottom: 28px; }
-.brand-mark-lg { width: 64px; height: 64px; border-radius: 18px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 900; font-size: 22px; margin: 0 auto 14px; box-shadow: 0 8px 24px rgba(200,16,46,.3); }
-.login-brand h1 { margin: 0; font-size: 24px; letter-spacing: -.5px; }
-.login-brand p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
-.login-hint { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
+  function toast(msg, type = '') { 
+    let old = $('.toast'); if (old) old.remove(); 
+    const el = document.createElement('div'); 
+    el.className = `toast ${type}`; 
+    el.textContent = msg; 
+    $('#toastRoot').appendChild(el); 
+    clearTimeout(toastTimer); 
+    toastTimer = setTimeout(() => el.remove(), 3200); 
+  }
 
-/* TOPBAR */
-.topbar { background: var(--ink); color: #fff; padding: 16px clamp(18px, 4vw, 40px); display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.brand { display: flex; gap: 12px; align-items: center; }
-.brand-mark { width: 42px; height: 42px; border-radius: 12px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 900; letter-spacing: -.5px; }
-.brand h1 { margin: 0; font-size: 19px; letter-spacing: -.3px; }
-.brand p { margin: 2px 0 0; color: #B8B8B8; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
-.top-actions { display: flex; align-items: center; gap: 10px; }
-.user-chip { background: rgba(255,255,255,.1); padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  function statusPill(status) { 
+    const map = { approved: ['approved','Aprobado'], pending: ['pending','Pendiente'], rejected: ['rejected','Rechazado'] }; 
+    const [cl, label] = map[status] || map.pending; 
+    return `<span class="pill ${cl}">${label}</span>`; 
+  }
 
-/* LAYOUT */
-.layout { display: grid; grid-template-columns: 240px minmax(0,1fr); max-width: 1500px; margin: 0 auto; min-height: calc(100vh - 74px); }
-.sidebar { background: var(--surface); border-right: 1px solid var(--line); padding: 22px 14px; }
-.nav-button { width: 100%; padding: 12px 14px; margin: 3px 0; border-radius: 11px; display: flex; align-items: center; gap: 11px; font-weight: 600; color: var(--ink-soft); transition: all .15s ease; text-align: left; }
-.nav-button .ico { width: 20px; text-align: center; font-size: 16px; opacity: .85; }
-.nav-button:hover:not(.active) { background: var(--surface-soft); }
-.nav-button.active { background: var(--brand); color: #fff; box-shadow: 0 4px 12px rgba(200,16,46,.25); }
-.sidebar-note { margin: 28px 4px 0; padding: 14px; background: var(--surface-soft); border-radius: 12px; font-size: 12px; color: var(--muted); line-height: 1.55; }
-.sidebar-note strong { color: var(--ink); display: block; margin-bottom: 6px; }
-.sidebar-note ol { margin: 0; padding-left: 18px; }
-main { padding: clamp(20px, 3vw, 36px); min-width: 0; }
+  function pageHead(kicker, title, desc, action = '') {
+    return `<div class="page-head"><div><div class="eyebrow">${kicker}</div><h2>${title}</h2><p>${desc}</p></div>${action}</div>`;
+  }
 
-/* PAGE HEAD */
-.page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
-.eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); }
-h2 { margin: 6px 0 6px; font-size: 28px; letter-spacing: -.7px; line-height: 1.15; }
-.page-head p { margin: 0; color: var(--muted); font-size: 14px; max-width: 640px; }
+  function closeModal() { $('#modalRoot').innerHTML = ''; }
+  function openModal(html) {
+    $('#modalRoot').innerHTML = `<div class="modal-backdrop" id="modalBackdrop"><div class="modal" onclick="event.stopPropagation()">${html}</div></div>`;
+    $('#modalBackdrop').addEventListener('click', closeModal);
+    $$('.modal-close', $('#modalRoot')).forEach(b => b.addEventListener('click', closeModal));
+  }
 
-/* BOTONES */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); transition: all .15s ease; }
-.btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
-.btn:active { transform: translateY(0); }
-.btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; }
-.btn-primary:hover { background: var(--brand-dark); }
-.btn-dark { background: var(--ink); border-color: var(--ink); color: #fff; }
-.btn-ghost { background: transparent; border-color: rgba(255,255,255,.2); color: #fff; }
-.btn-ghost:hover { background: rgba(255,255,255,.1); }
-.btn-approve { background: var(--success-soft); border-color: #B7E0C5; color: var(--success); }
-.btn-approve:hover { background: #D8EEDF; }
-.btn-reject { background: var(--danger-soft); border-color: #F0C0C0; color: var(--danger); }
-.btn-reject:hover { background: #F5D9D9; }
-.btn-sm { padding: 7px 12px; font-size: 12px; border-radius: 8px; }
-.btn-block { width: 100%; }
+  function openLightbox(src) {
+    const lb = document.createElement('div');
+    lb.className = 'lightbox';
+    lb.innerHTML = `<button class="lightbox-close">✕</button><img src="${src}" alt="Evidencia">`;
+    lb.addEventListener('click', () => lb.remove());
+    document.body.appendChild(lb);
+  }
 
-/* CARDS */
-.cards { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 22px; }
-.metric { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-sm); transition: all .2s ease; }
-.metric:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
-.metric-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; color: var(--muted); }
-.metric-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-soft); font-size: 16px; }
-.metric-value { font-size: clamp(20px,2vw,26px); font-weight: 900; letter-spacing: -.5px; margin: 14px 0 4px; overflow-wrap: anywhere; }
-.metric-foot { font-size: 11px; color: var(--muted); }
+  function setPage(next) { 
+    page = next; 
+    $$('.nav-button').forEach(b => b.classList.toggle('active', b.dataset.page === page)); 
+    render(); 
+  }
 
-/* PANEL */
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm); min-width: 0; }
-.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-.panel-head h3 { margin: 0; font-size: 16px; letter-spacing: -.2px; }
-.panel-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
-.grid-two { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(280px,.8fr); gap: 18px; margin-bottom: 18px; }
+  function render() {
+    if (!currentUser) {
+      $('#loginScreen').classList.remove('hidden');
+      $('#app').classList.add('hidden');
+      return;
+    }
+    $('#loginScreen').classList.add('hidden');
+    $('#app').classList.remove('hidden');
+    
+    $('#userChip').textContent = `${currentUser.name} · ${currentUser.role === 'approver' ? 'Admin' : 'Colaborador'}`;
+    $('#pendingNavCount').textContent = records.filter(r => r.status === 'pending').length;
+    
+    const main = $('#main');
+    if (page === 'dashboard') main.innerHTML = renderDashboard();
+    else if (page === 'new') main.innerHTML = renderNew();
+    else if (page === 'review') main.innerHTML = renderReview();
+    else if (page === 'history') main.innerHTML = renderHistory();
+    
+    bindPage();
+  }
 
-/* BARRAS */
-.bar-row { display: grid; grid-template-columns: 110px minmax(30px,1fr) 100px; align-items: center; gap: 12px; margin: 10px 0; font-size: 12px; }
-.bar-label { color: var(--muted); font-weight: 700; }
-.bar-track { height: 9px; border-radius: 99px; background: var(--surface-soft); overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 99px; transition: width .4s ease; }
-.bar-fill.income { background: var(--success); }
-.bar-fill.expense { background: var(--brand); }
-.bar-value { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+  function renderDashboard() {
+    const approved = records.filter(r => r.status === 'approved');
+    const income = approved.filter(r => r.type === 'Ingreso').reduce((a, r) => a + Number(r.amount), 0);
+    const expense = approved.filter(r => r.type === 'Egreso').reduce((a, r) => a + Number(r.amount), 0);
+    const net = income - expense;
+    const pending = records.filter(r => r.status === 'pending').length;
 
-/* NOTICE */
-.notice { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 12px; background: var(--warning-soft); border: 1px solid #F0D89B; color: var(--warning); font-size: 13px; line-height: 1.5; margin-bottom: 18px; }
-.notice strong { display: block; margin-bottom: 2px; color: #7A5A00; }
+    const fleet = VEHICLES.map(v => ({
+      name: v,
+      income: approved.filter(r => r.vehicle === v && r.type === 'Ingreso').reduce((a, r) => a + Number(r.amount), 0),
+      expense: approved.filter(r => r.vehicle === v && r.type === 'Egreso').reduce((a, r) => a + Number(r.amount), 0)
+    })).filter(v => v.income > 0 || v.expense > 0);
+    
+    const max = Math.max(1, ...fleet.map(v => Math.max(v.income, v.expense)));
+    const recent = [...approved].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
-/* TABLA */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 700px; }
-th { text-align: left; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); font-weight: 800; white-space: nowrap; }
-td { padding: 13px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-tbody tr { transition: background .12s; }
-tbody tr:hover { background: var(--surface-soft); cursor: pointer; }
-tbody tr:last-child td { border-bottom: 0; }
-.money { font-variant-numeric: tabular-nums; font-weight: 800; white-space: nowrap; }
+    return `${pageHead('Resumen general', 'Dashboard financiero', 'Vista consolidada de los movimientos aprobados.', `<button class="btn btn-primary" data-go="new">＋ Registrar</button>`)}
+      <div class="notice"><span style="font-size:20px">ⓘ</span><div><strong>Los montos pendientes no suman en los indicadores.</strong>Hay ${pending} movimiento(s) esperando revisión.</div><button class="btn btn-sm" data-go="review" style="margin-left:auto;align-self:center">Revisar</button></div>
+      <section class="cards">
+        <div class="metric"><div class="metric-top"><span>Ingresos aprobados</span><span class="metric-icon">↙</span></div><div class="metric-value">${money(income)}</div><div class="metric-foot">Movimientos aceptados</div></div>
+        <div class="metric"><div class="metric-top"><span>Gastos aprobados</span><span class="metric-icon">↗</span></div><div class="metric-value">${money(expense)}</div><div class="metric-foot">Movimientos aceptados</div></div>
+        <div class="metric"><div class="metric-top"><span>Resultado neto</span><span class="metric-icon">◈</span></div><div class="metric-value" style="color:${net < 0 ? 'var(--danger)' : 'var(--success)'}">${money(net)}</div><div class="metric-foot">Ingresos menos gastos aprobados</div></div>
+        <div class="metric"><div class="metric-top"><span>Por revisar</span><span class="metric-icon">◷</span></div><div class="metric-value">${pending}</div><div class="metric-foot">Pendientes de aprobación</div></div>
+      </section>
+      <section class="grid-two">
+        <div class="panel"><div class="panel-head"><div><h3>Resumen por vehículo</h3><p>Ingresos y egresos aprobados</p></div></div>
+          ${fleet.map(v => `<div style="margin:17px 0 20px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:800;margin-bottom:9px"><span>${v.name}</span><span>${money(v.income - v.expense)}</span></div><div class="bar-row" style="margin:8px 0"><span class="bar-label">Ingresos</span><div class="bar-track"><div class="bar-fill income" style="width:${Math.min(100, v.income / max * 100)}%"></div></div><span class="bar-value">${money(v.income)}</span></div><div class="bar-row" style="margin:8px 0"><span class="bar-label">Gastos</span><div class="bar-track"><div class="bar-fill expense" style="width:${Math.min(100, v.expense / max * 100)}%"></div></div><span class="bar-value">${money(v.expense)}</span></div></div>`).join('')}
+        </div>
+        <div class="panel"><div class="panel-head"><div><h3>Flujo de aprobación</h3><p>Estado actual de los registros</p></div></div>
+          ${[['Aprobados', records.filter(r => r.status === 'approved').length, 'var(--success)'], ['Pendientes', records.filter(r => r.status === 'pending').length, 'var(--warning)'], ['Rechazados', records.filter(r => r.status === 'rejected').length, 'var(--danger)']].map(([l, n, c]) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--line)"><span style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700"><span style="width:9px;height:9px;border-radius:50%;background:${c}"></span>${l}</span><strong style="font-size:22px">${n}</strong></div>`).join('')}
+        </div>
+      </section>
+      <section class="panel"><div class="panel-head"><div><h3>Movimientos recientes</h3><p>Últimas operaciones aprobadas</p></div><button class="btn btn-sm" data-go="history">Ver historial →</button></div>
+        ${recent.length ? `<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Vehículo</th><th>Responsable</th><th>Estado</th><th style="text-align:right">Importe</th></tr></thead><tbody>${recent.map(r => `<tr onclick="window.dispatchEvent(new CustomEvent('viewDetail', {detail: ${r.id}}))"><td>${dateFmt(r.date)}</td><td><strong>${escapeHtml(r.description)}</strong><div class="vehicle-tag">${r.category}</div></td><td>${r.vehicle}</td><td>${r.submitter}</td><td>${statusPill(r.status)}</td><td class="money" style="text-align:right;color:${r.type === 'Ingreso' ? 'var(--success)' : 'var(--ink)'}">${r.type === 'Ingreso' ? '+' : '−'}${money(r.amount)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="empty">No hay movimientos aprobados.</div>`}
+      </section>`;
+  }
 
-/* PILLS */
-.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 5px 10px; font-size: 11px; font-weight: 800; white-space: nowrap; }
-.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.pill.approved { color: var(--success); background: var(--success-soft); }
-.pill.pending { color: var(--warning); background: var(--warning-soft); }
-.pill.rejected { color: var(--danger); background: var(--danger-soft); }
-.type { font-size: 11px; font-weight: 800; }
-.type.income { color: var(--success); }
-.type.expense { color: var(--brand); }
-.vehicle-tag { color: var(--muted); font-size: 11px; font-weight: 600; margin-top: 3px; }
+  function renderNew() {
+    return `${pageHead('Registro de operaciones', 'Registrar movimiento', 'Completa los datos y adjunta evidencia. Quedará pendiente hasta ser revisado.')}
+      <form id="movementForm" class="panel">
+        <div class="panel-head"><div><h3>Datos del movimiento</h3><p>* Campos obligatorios</p></div></div>
+        <div class="form-grid">
+          <div class="field"><label for="fType">Tipo *</label><select id="fType" required><option value="Egreso">Egreso / Gasto</option><option value="Ingreso">Ingreso</option></select></div>
+          <div class="field"><label for="fDate">Fecha *</label><input id="fDate" type="date" value="${today()}" required></div>
+          <div class="field"><label for="fAmount">Importe (S/) *</label><input id="fAmount" type="number" min="0.01" step="0.01" placeholder="0.00" required></div>
+          <div class="field"><label for="fCategory">Categoría *</label><select id="fCategory" required></select></div>
+          <div class="field" id="customCatWrap" style="display:none"><label for="fCustomCategory">Especifique categoría *</label><input id="fCustomCategory" placeholder="Ej. Pintura, trámites..."></div>
+          <div class="field"><label for="fVehicle">Vehículo *</label><select id="fVehicle" required>${VEHICLES.map(v => `<option>${v}</option>`).join('')}</select></div>
+          <div class="field"><label for="fVendor">Proveedor / Cliente</label><input id="fVendor" placeholder="Opcional"></div>
+          <div class="field"><label for="fPayment">Medio de pago</label><select id="fPayment"><option>Efectivo</option><option>Yape / Plin</option><option>Transferencia</option><option>Tarjeta</option><option>Otro</option></select></div>
+          <div class="field full"><label for="fDescription">Descripción *</label><input id="fDescription" placeholder="Ej. Compra de repuestos" required></div>
+          <div class="field full"><label for="fNotes">Notas adicionales</label><textarea id="fNotes" placeholder="Opcional..."></textarea></div>
+          <div class="field full"><label for="fEvidence">Evidencias (Fotos)</label><div class="upload-box"><input id="fEvidence" type="file" accept="image/*" multiple><div id="previewList" class="preview-list"></div></div></div>
+        </div>
+        <div class="form-actions"><button type="button" class="btn" data-go="dashboard">Cancelar</button><button class="btn btn-primary" type="submit">Enviar a revisión</button></div>
+      </form>`;
+  }
 
-/* FORM */
-.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
-.field { display: flex; flex-direction: column; gap: 7px; }
-.field.full { grid-column: 1/-1; }
-.field label { font-size: 12px; font-weight: 700; color: var(--ink); }
-.field input, .field select, .field textarea { width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); outline: none; transition: all .15s; }
-.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(200,16,46,.12); }
-.field textarea { min-height: 88px; resize: vertical; }
-.hint { font-size: 11px; color: var(--muted); line-height: 1.5; }
-.upload-box { border: 1.5px dashed #C8C8C8; background: var(--surface-soft); border-radius: 12px; padding: 20px; text-align: center; transition: all .15s; }
-.upload-box:hover { border-color: var(--brand); background: var(--brand-soft); }
-.upload-box input { margin-top: 8px; }
-.preview-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; justify-content: center; }
-.preview-item { width: 100px; position: relative; }
-.preview-item img { width: 100px; height: 84px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
-.preview-item span { display: block; font-size: 10px; color: var(--muted); text-align: center; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+  function renderReview() {
+    const queue = records.filter(r => r.status === 'pending');
+    const current = queue.find(r => r.id === selectedReview) || queue[0];
+    selectedReview = current ? current.id : null;
 
-/* REVISIÓN */
-.review-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(300px,.9fr); gap: 18px; }
-.review-card { display: block; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 16px; margin-bottom: 12px; transition: all .15s; }
-.review-card:hover { border-color: var(--brand); transform: translateY(-1px); box-shadow: var(--shadow); }
-.review-card.selected { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(200,16,46,.12); }
-.review-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.review-title h4 { margin: 0 0 4px; font-size: 14px; }
-.review-title p { margin: 0; color: var(--muted); font-size: 12px; }
-.review-amount { font-size: 17px; font-weight: 900; white-space: nowrap; }
-.review-meta { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
-.meta-chip { background: var(--surface-soft); color: var(--muted); padding: 5px 9px; border-radius: 7px; font-size: 11px; font-weight: 700; }
+    return `${pageHead('Control interno', 'Revisiones', 'Revisa las evidencias antes de aprobar o rechazar.', `<span class="pill pending">${queue.length} pendientes</span>`)}
+      ${currentUser.role !== 'approver' ? `<div class="notice"><span style="font-size:20px">🔒</span><div><strong>Modo Colaborador.</strong>Inicia sesión como "Administración" para aprobar.</div></div>` : ''}
+      <div class="review-layout">
+        <section>
+          ${queue.length ? queue.map(r => `<button class="review-card ${current && current.id === r.id ? 'selected' : ''}" data-review-id="${r.id}"><div class="review-title"><div><h4>${escapeHtml(r.description)}</h4><p>${r.submitter} · ${dateFmt(r.date)}</p></div><div class="review-amount">${money(r.amount)}</div></div><div class="review-meta"><span class="meta-chip">${r.type}</span><span class="meta-chip">${r.vehicle}</span><span class="meta-chip">${r.category}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted)">${r.evidence?.length || 0} fotos</span>${statusPill(r.status)}</div></button>`).join('') : `<div class="panel empty"><div class="big">✓</div><strong>Todo al día</strong><p>No hay pendientes.</p></div>`}
+        </section>
+        <section class="panel">
+          ${current ? `
+            <div class="panel-head"><div><h3>Detalle #${current.id}</h3></div>${statusPill(current.status)}</div>
+            <div class="review-title"><div class="eyebrow">${current.type}</div><h3 style="font-size:24px;margin:5px 0">${money(current.amount)}</h3></div>
+            <div class="detail-block"><h4>Descripción</h4><p>${escapeHtml(current.description)}</p></div>
+            <div class="detail-block"><h4>Información</h4><p><strong>Vehículo:</strong> ${current.vehicle}<br><strong>Registrado por:</strong> ${current.submitter}<br><strong>Proveedor:</strong> ${current.vendor || '—'}<br><strong>Notas:</strong> ${escapeHtml(current.notes || '—')}</p></div>
+            <div class="detail-block"><h4>Evidencias</h4>
+              ${current.evidence?.length ? `<div class="evidence-grid">${current.evidence.map(src => `<div class="evidence-thumb" data-img="${src}"><img src="${src}" alt="Evidencia"></div>`).join('')}</div>` : `<div class="evidence-placeholder">Sin fotos</div>`}
+            </div>
+            ${currentUser.role === 'approver' && current.status === 'pending' ? `<div class="approval-actions"><button class="btn btn-approve" data-approve="${current.id}">✓ Aprobar</button><button class="btn btn-reject" data-reject="${current.id}">✕ Rechazar</button></div>` : ''}
+          ` : `<div class="empty">Selecciona un movimiento.</div>`}
+        </section>
+      </div>`;
+  }
 
-/* EVIDENCIAS */
-.evidence-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 10px; }
-.evidence-thumb { aspect-ratio: 4/3; border-radius: 10px; border: 1px solid var(--line); overflow: hidden; cursor: zoom-in; transition: transform .15s; background: var(--surface-soft); }
-.evidence-thumb:hover { transform: scale(1.03); }
-.evidence-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.evidence-placeholder { min-height: 100px; border-radius: 10px; background: var(--surface-soft); display: grid; place-items: center; color: var(--muted); font-size: 12px; text-align: center; padding: 16px; }
-.detail-block { margin-top: 16px; }
-.detail-block h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
-.detail-block p { margin: 0; font-size: 13px; line-height: 1.6; }
-.approval-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+  function renderHistory() {
+    let rows = [...records];
+    if (historyFilter !== 'Todos') rows = rows.filter(r => r.status === historyFilter.toLowerCase());
+    if (searchText) rows = rows.filter(r => [r.description, r.vehicle, r.submitter, r.vendor, r.category].join(' ').toLowerCase().includes(searchText.toLowerCase()));
+    
+    rows.sort((a, b) => b.date.localeCompare(a.date));
 
-/* FILTROS */
-.filter-row { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 16px; }
-.filter-row input, .filter-row select { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 12px; outline: none; transition: all .15s; }
-.filter-row input:focus, .filter-row select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(200,16,46,.1); }
-.filter-row input { flex: 1; min-width: 200px; }
+    return `${pageHead('Trazabilidad', 'Historial', 'Consulta y audita todos los movimientos.')}
+      <div class="panel">
+        <div class="filter-row">
+          <input id="historySearch" placeholder="Buscar..." value="${escapeHtml(searchText)}">
+          <select id="historyFilter"><option ${historyFilter === 'Todos' ? 'selected' : ''}>Todos</option><option ${historyFilter === 'Aprobado' ? 'selected' : ''}>Aprobado</option><option ${historyFilter === 'Pendiente' ? 'selected' : ''}>Pendiente</option><option ${historyFilter === 'Rechazado' ? 'selected' : ''}>Rechazado</option></select>
+          <button class="btn btn-sm" id="clearFilters">Limpiar</button>
+        </div>
+        ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>ID / Fecha</th><th>Detalle</th><th>Vehículo</th><th>Estado</th><th style="text-align:right">Importe</th></tr></thead><tbody>
+          ${rows.map(r => `<tr onclick="window.dispatchEvent(new CustomEvent('viewDetail', {detail: ${r.id}}))">
+            <td><strong>#${r.id}</strong><div class="vehicle-tag">${dateFmt(r.date)}</div></td>
+            <td><strong>${escapeHtml(r.description)}</strong><div class="vehicle-tag">${r.category} · ${r.submitter}</div></td>
+            <td>${r.vehicle}</td>
+            <td>${statusPill(r.status)}</td>
+            <td class="money" style="text-align:right">${money(r.amount)}</td>
+          </tr>`).join('')}
+        </tbody></table></div>` : `<div class="empty">No se encontraron movimientos.</div>`}
+      </div>`;
+  }
 
-/* EMPTY */
-.empty { padding: 40px 16px; text-align: center; color: var(--muted); }
-.empty .big { font-size: 34px; margin-bottom: 10px; }
+  function bindPage() {
+    $$('[data-go]').forEach(b => b.addEventListener('click', () => setPage(b.dataset.go)));
+    
+    $$('[data-review-id]').forEach(b => b.addEventListener('click', () => { selectedReview = Number(b.dataset.reviewId); render(); }));
+    $$('[data-approve]').forEach(b => b.addEventListener('click', () => decide(Number(b.dataset.approve), 'approved')));
+    $$('[data-reject]').forEach(b => b.addEventListener('click', () => promptReject(Number(b.dataset.reject))));
+    $$('.evidence-thumb').forEach(b => b.addEventListener('click', () => openLightbox(b.dataset.img)));
 
-/* MODAL */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; z-index: 100; animation: fadein .18s ease-out; }
-.modal { background: var(--surface); border-radius: 18px; max-width: 720px; width: 100%; max-height: 92vh; overflow: auto; box-shadow: var(--shadow-lg); animation: pop .22s cubic-bezier(.2,.9,.3,1.2); }
-.modal-head { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: var(--surface); z-index: 1; }
-.modal-head h3 { margin: 0; font-size: 17px; }
-.modal-close { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 18px; color: var(--muted); }
-.modal-close:hover { background: var(--surface-soft); color: var(--ink); }
-.modal-body { padding: 22px 24px; }
-.modal-foot { padding: 16px 24px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; background: var(--surface-soft); }
+    const form = $('#movementForm');
+    if (form) {
+      const typeSel = $('#fType');
+      const catSel = $('#fCategory');
+      const customWrap = $('#customCatWrap');
+      const customInput = $('#fCustomCategory');
+      const inputEv = $('#fEvidence');
 
-/* Lightbox */
-.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.92); display: grid; place-items: center; z-index: 200; padding: 20px; cursor: zoom-out; animation: fadein .18s; }
-.lightbox img { max-width: 100%; max-height: 92vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
-.lightbox-close { position: absolute; top: 20px; right: 20px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.15); color: #fff; font-size: 22px; display: grid; place-items: center; }
-.lightbox-close:hover { background: rgba(255,255,255,.28); }
+      const updateCats = () => {
+        const type = typeSel.value === 'Ingreso' ? 'income' : 'expense';
+        catSel.innerHTML = CATEGORIES[type].map(c => `<option value="${c}">${c}</option>`).join('');
+        customWrap.style.display = catSel.value === 'Otro' ? 'flex' : 'none';
+      };
+      typeSel.addEventListener('change', updateCats);
+      catSel.addEventListener('change', () => { customWrap.style.display = catSel.value === 'Otro' ? 'flex' : 'none'; });
+      updateCats();
 
-/* TOAST */
-.toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: #fff; padding: 13px 18px; border-radius: 11px; box-shadow: var(--shadow-lg); font-size: 13px; font-weight: 600; max-width: calc(100vw - 48px); animation: slidein .22s ease-out; z-index: 300; border-left: 4px solid var(--brand); }
-.toast.success { border-left-color: var(--success); }
-.toast.error { border-left-color: var(--danger); }
+      inputEv.addEventListener('change', () => {
+        const files = [...inputEv.files];
+        if (files.length > 3) { toast('Máximo 3 fotos permitidas.', 'error'); inputEv.value = ''; return; }
+        draftEvidence = [];
+        Promise.all(files.map(f => new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); }))).then(urls => {
+          draftEvidence = urls;
+          $('#previewList').innerHTML = urls.map(u => `<div class="preview-item"><img src="${u}"></div>`).join('');
+        });
+      });
 
-/* ANIMACIONES */
-@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
-@keyframes slidein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const amount = Number($('#fAmount').value);
+        if (!amount || amount <= 0) return toast('Importe inválido.', 'error');
+        
+        const isOther = catSel.value === 'Otro';
+        const finalCat = isOther ? customInput.value.trim() : catSel.value;
+        if (isOther && !finalCat) return toast('Especifique la categoría "Otro".', 'error');
 
-/* FOOTER NOTE */
-.footer-note { margin-top: 20px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+        const newRecord = {
+          id: Math.max(1000, ...records.map(r => r.id)) + 1,
+          date: $('#fDate').value,
+          type: typeSel.value,
+          category: isOther ? 'Otro' : finalCat,
+          customCategory: isOther ? finalCat : '',
+          vehicle: $('#fVehicle').value,
+          amount: amount,
+          description: $('#fDescription').value.trim(),
+          vendor: $('#fVendor').value.trim(),
+          account: 'Caja', 
+          payment: $('#fPayment').value,
+          submitter: currentUser.name,
+          status: 'pending',
+          notes: $('#fNotes').value.trim(),
+          evidence: draftEvidence,
+          rejectionReason: ''
+        };
+        records.push(newRecord);
+        toast('Movimiento registrado y enviado a revisión.', 'success');
+        setPage('review');
+      });
+    }
 
-/* RESPONSIVE */
-@media (max-width: 1050px) {
-  .cards { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .grid-two, .review-layout { grid-template-columns: 1fr; }
-}
-@media (max-width: 720px) {
-  .layout { grid-template-columns: 1fr; }
-  .sidebar { border-right: 0; border-bottom: 1px solid var(--line); display: flex; overflow-x: auto; padding: 10px 12px; gap: 4px; }
-  .nav-button { width: auto; white-space: nowrap; padding: 9px 12px; }
-  .nav-button .ico { display: none; }
-  .sidebar-note { display: none; }
-  .topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .top-actions { width: 100%; justify-content: space-between; }
-  main { padding: 18px 14px 32px; }
-  .page-head { flex-direction: column; }
-  .form-grid { grid-template-columns: 1fr; }
-  .field.full { grid-column: auto; }
-  .cards { gap: 10px; }
-  .metric { padding: 14px; }
-  .metric-value { font-size: 20px; }
-  .bar-row { grid-template-columns: 80px minmax(20px,1fr) 82px; gap: 8px; }
-  .modal { border-radius: 14px; }
-  .modal-body { padding: 16px; }
-}
+    const hs = $('#historySearch');
+    if (hs) hs.addEventListener('input', e => { searchText = e.target.value; render(); $('#historySearch').focus(); });
+    const hf = $('#historyFilter');
+    if (hf) hf.addEventListener('change', e => { historyFilter = e.target.value; render(); });
+    const clear = $('#clearFilters');
+    if (clear) clear.addEventListener('click', () => { searchText = ''; historyFilter = 'Todos'; render(); });
+  }
+
+  function promptReject(id) {
+    if (currentUser.role !== 'approver') return toast('No tienes permisos.', 'error');
+    openModal(`
+      <div class="modal-head"><h3>Rechazar movimiento #${id}</h3><button class="modal-close">✕</button></div>
+      <div class="modal-body">
+        <div class="field"><label>Motivo del rechazo (Obligatorio)</label><textarea id="rejectReason" placeholder="Ej. La foto no es legible, el monto no coincide..."></textarea></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="document.getElementById('modalRoot').innerHTML=''">Cancelar</button>
+        <button class="btn btn-reject" id="confirmRejectBtn">Confirmar Rechazo</button>
+      </div>
+    `);
+    $('#confirmRejectBtn').addEventListener('click', () => {
+      const reason = $('#rejectReason').value.trim();
+      if (!reason) return toast('El motivo es obligatorio.', 'error');
+      decide(id, 'rejected', reason);
+      closeModal();
+    });
+  }
+
+  function decide(id, status, reason = '') {
+    const item = records.find(r => r.id === id);
+    if (!item || item.status !== 'pending') return;
+    item.status = status;
+    item.reviewer = currentUser.name;
+    item.rejectionReason = reason;
+    toast(status === 'approved' ? 'Movimiento aprobado.' : 'Movimiento rechazado.', status === 'approved' ? 'success' : '');
+    selectedReview = null;
+    render();
+  }
+
+  window.addEventListener('viewDetail', e => {
+    const item = records.find(r => r.id === e.detail);
+    if (!item) return;
+    openModal(`
+      <div class="modal-head"><h3>Detalle #${item.id}</h3><button class="modal-close">✕</button></div>
+      <div class="modal-body">
+        <div class="review-title"><div><div class="eyebrow">${item.type}</div><h3 style="font-size:28px;margin:5px 0">${money(item.amount)}</h3></div>${statusPill(item.status)}</div>
+        <div class="detail-block"><h4>Descripción</h4><p>${escapeHtml(item.description)}</p></div>
+        <div class="detail-block"><h4>Información</h4><p>
+          <strong>Fecha:</strong> ${dateFmt(item.date)}<br>
+          <strong>Vehículo:</strong> ${item.vehicle}<br>
+          <strong>Categoría:</strong> ${item.category} ${item.customCategory ? `(${item.customCategory})` : ''}<br>
+          <strong>Registrado por:</strong> ${item.submitter}<br>
+          <strong>Proveedor:</strong> ${item.vendor || '—'}<br>
+          <strong>Medio de pago:</strong> ${item.payment}
+        </p></div>
+        <div class="detail-block"><h4>Notas</h4><p>${escapeHtml(item.notes || 'Sin notas adicionales.')}</p></div>
+        ${item.status === 'rejected' && item.rejectionReason ? `<div class="notice" style="background:var(--danger-soft);border-color:#F0C0C0;color:var(--danger)"><span style="font-size:20px">✕</span><div><strong>Motivo del rechazo:</strong>${escapeHtml(item.rejectionReason)}</div></div>` : ''}
+        <div class="detail-block"><h4>Evidencias</h4>
+          ${item.evidence?.length ? `<div class="evidence-grid">${item.evidence.map(src => `<div class="evidence-thumb" onclick="event.stopPropagation()" data-img="${src}"><img src="${src}"></div>`).join('')}</div>` : `<div class="evidence-placeholder">No se adjuntaron fotos.</div>`}
+        </div>
+      </div>
+      <div class="modal-foot"><button class="btn" onclick="document.getElementById('modalRoot').innerHTML=''">Cerrar</button></div>
+    `);
+    $$('.evidence-thumb', $('#modalRoot')).forEach(b => b.addEventListener('click', () => openLightbox(b.dataset.img)));
+  });
+
+  $('#loginForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const user = USERS.find(u => u.id === $('#loginUser').value);
+    const pin = $('#loginPin').value;
+    if (!user || pin !== DEMO_PIN) return toast('Usuario o PIN incorrecto (Demo: 1234).', 'error');
+    currentUser = user;
+    setPage('dashboard');
+  });
+
+  $('#logoutBtn').addEventListener('click', () => {
+    currentUser = null;
+    $('#loginUser').value = '';
+    $('#loginPin').value = '';
+    render();
+  });
+
+  $$('.nav-button').forEach(b => b.addEventListener('click', () => setPage(b.dataset.page)));
+
+  render();
+})();
