@@ -89,6 +89,24 @@ let dashVehicle='Todos';
 let dashSearch='';
 let historyStatus='Todos', historyType='Todos', historyVehicle='Todos', historySearch='';
 let reportVehicle='Todos', reportPeriod='all';
+let reportDay=localDate(), reportMonth=localDate().slice(0,7), reportYear=localDate().slice(0,4);
+let reportFrom=localDate().slice(0,7)+'-01', reportTo=localDate(), reportSearch='';
+function filteredReportRows(){
+ let rows=periodFilter(visibleRecords(),reportPeriod,reportDay,reportMonth,reportYear);
+ if(reportPeriod==='range'){
+  if(!reportFrom || !reportTo || reportFrom>reportTo) return [];
+  rows=rows.filter(r=>r.date>=reportFrom && r.date<=reportTo);
+ }
+ if(reportVehicle!=='Todos') rows=rows.filter(r=>r.vehicle===reportVehicle);
+ if(reportSearch.trim()){
+  const q=reportSearch.trim().toLowerCase();
+  rows=rows.filter(r=>[r.description,r.vendor,r.category,r.submitter,r.vehicle,r.type,r.date,r.id].join(' ').toLowerCase().includes(q));
+ }
+ return rows;
+}
+function reportPeriodLabel(){
+ return ({all:'Histórico general',day:dateFmt(reportDay),month:reportMonth,year:reportYear,range:`${dateFmt(reportFrom)} — ${dateFmt(reportTo)}`})[reportPeriod];
+}
 const isAdmin=()=>currentUser?.role==='approver';
 const visibleRecords=()=>isAdmin()?data.records:data.records.filter(r=>r.submitterId===currentUser?.id || (!r.submitterId && r.submitter===currentUser?.name));
 const approvedRows=rows=>rows.filter(r=>r.status==='approved');
@@ -196,8 +214,8 @@ function renderDashboard(){
  <div class="metric"><div class="metric-kicker"><span>Pendientes de revisión</span><div class="metric-icon gold">${icon('clock',21)}</div></div><div class="metric-value">${filtered.filter(r=>r.status==='pending').length}</div><div class="metric-foot">Movimientos aún no contabilizados</div></div></section>
  <div class="dashboard-chart-grid">${chartHTML(accepted)}${categoryHTML(accepted)}</div>
  <div class="bottom-grid"><div class="panel"><div class="panel-head"><div><h3>Últimos movimientos</h3><p>Operaciones del periodo ${esc(periodLabel)}</p></div><button class="small-link" data-go="history">Ver historial →</button></div>${tableHTML(recent,true)}</div>
- <div class="panel"><div class="panel-head"><div><h3>Accesos rápidos</h3><p>Operaciones frecuentes</p></div></div><button class="quick-action" data-go="new">${icon('plus-circle')} <span>Registrar movimiento</span>${icon('arrow-right',15)}</button><button class="quick-action" data-go="review">${icon('clipboard-check')} <span>${isAdmin()?'Revisar aprobaciones':'Ver estado de mis registros'}</span>${icon('arrow-right',15)}</button><button class="quick-action" data-go="reports">${icon('bar-chart')} <span>Consultar reportes</span>${icon('arrow-right',15)}</button><button class="quick-action" data-go="vehicles">${icon('truck')} <span>Consultar vehículos</span>${icon('arrow-right',15)}</button>
- <div class="fleet-mini"><div class="panel-head" style="margin-bottom:3px"><div><h3>Gastos por vehículo</h3><p>Periodo seleccionado</p></div></div>${fleet.length?fleet.map(f=>`<div class="fleet-line"><div class="fleet-line-top"><span>${esc(f.name)}</span><strong>${fmt(f.amount)}</strong></div><div class="progress-track"><div class="progress-bar ${f.amount===Math.max(...fleet.map(x=>x.amount))?'red':''}" style="width:${fleetTotal?f.amount/fleetTotal*100:0}%"></div></div></div>`).join(''):'<div class="footer-note">Sin gastos aprobados para los filtros.</div>'}</div></div></div>
+ <div class="panel quick-access-panel"><div class="panel-head"><div><h3>Accesos rápidos</h3><p>Operaciones frecuentes</p></div></div><div class="quick-access-buttons"><button class="quick-action" data-go="new">${icon('plus-circle')} <span>Registrar movimiento</span>${icon('arrow-right',15)}</button><button class="quick-action" data-go="review">${icon('clipboard-check')} <span>${isAdmin()?'Revisar aprobaciones':'Ver estado de mis registros'}</span>${icon('arrow-right',15)}</button><button class="quick-action" data-go="reports">${icon('bar-chart')} <span>Consultar reportes</span>${icon('arrow-right',15)}</button><button class="quick-action" data-go="vehicles">${icon('truck')} <span>Consultar vehículos</span>${icon('arrow-right',15)}</button>
+ </div><div class="fleet-mini"><div class="panel-head" style="margin-bottom:3px"><div><h3>Gastos por vehículo</h3><p>Periodo seleccionado</p></div></div>${fleet.length?fleet.map(f=>`<div class="fleet-line"><div class="fleet-line-top"><span>${esc(f.name)}</span><strong>${fmt(f.amount)}</strong></div><div class="progress-track"><div class="progress-bar ${f.amount===Math.max(...fleet.map(x=>x.amount))?'red':''}" style="width:${fleetTotal?f.amount/fleetTotal*100:0}%"></div></div></div>`).join(''):'<div class="footer-note">Sin gastos aprobados para los filtros.</div>'}</div></div></div>
  <div class="notice is-demo info" style="margin-top:18px">${icon('info',18)}<div><strong>Vista de demostración</strong><p>Solo los movimientos aprobados se suman al balance. Los datos quedan guardados localmente en este navegador, no en una base de datos.</p></div></div>`;
 }
 function renderNew(){
@@ -245,13 +263,23 @@ function renderHistory(){
 }
 function renderReports(){
  const all=visibleRecords();
- let rows=reportPeriod==='month'?all.filter(r=>r.date.startsWith(localDate().slice(0,7))):all;
- if(reportVehicle!=='Todos')rows=rows.filter(r=>r.vehicle===reportVehicle);
+ let rows=filteredReportRows();
  const accepted=approvedRows(rows),income=total(accepted,'Ingreso'),expense=total(accepted,'Egreso'),balance=income-expense;
  const fleet=data.vehicles.map(v=>({name:v,inc:total(accepted.filter(r=>r.vehicle===v),'Ingreso'),out:total(accepted.filter(r=>r.vehicle===v),'Egreso'),count:accepted.filter(r=>r.vehicle===v).length})).filter(x=>x.count>0);
  const cat={};accepted.filter(r=>r.type==='Egreso').forEach(r=>{const name=r.category==='Otro'&&r.customCategory?r.customCategory:r.category;cat[name]=(cat[name]||0)+r.amount;});
  return `${pageHead('ANÁLISIS FINANCIERO','Reportes','Una vista consolidada de los movimientos aprobados.',`<button class="btn" id="printReport">${icon('printer',16)} Imprimir</button><button class="btn btn-primary" id="exportReport">${icon('download',16)} Descargar CSV</button>`)}
- <div class="panel dashboard-filters"><div class="field"><label>PERIODO</label><select id="rPeriod"><option value="all" ${reportPeriod==='all'?'selected':''}>Histórico general</option><option value="month" ${reportPeriod==='month'?'selected':''}>Mes actual</option></select></div><div class="field"><label>VEHÍCULO</label><select id="rVehicle"><option>Todos</option>${data.vehicles.map(v=>`<option ${reportVehicle===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div></div>
+ <div class="panel dashboard-filters reports-filters">
+ <div class="field"><label for="rPeriod">PERIODO</label><select id="rPeriod"><option value="all" ${reportPeriod==='all'?'selected':''}>Histórico general</option><option value="day" ${reportPeriod==='day'?'selected':''}>Por día</option><option value="month" ${reportPeriod==='month'?'selected':''}>Por mes</option><option value="year" ${reportPeriod==='year'?'selected':''}>Por año</option><option value="range" ${reportPeriod==='range'?'selected':''}>Rango de fechas</option></select></div>
+ ${reportPeriod==='day'?`<div class="field"><label for="rDay">DÍA</label><input id="rDay" type="date" value="${esc(reportDay)}"></div>`:''}
+ ${reportPeriod==='month'?`<div class="field"><label for="rMonth">MES</label><input id="rMonth" type="month" value="${esc(reportMonth)}"></div>`:''}
+ ${reportPeriod==='year'?`<div class="field"><label for="rYear">AÑO</label><select id="rYear">${Array.from(new Set([...all.map(r=>r.date.slice(0,4)),localDate().slice(0,4)])).sort().reverse().map(y=>`<option value="${esc(y)}" ${reportYear===y?'selected':''}>${esc(y)}</option>`).join('')}</select></div>`:''}
+ ${reportPeriod==='range'?`<div class="field"><label for="rFrom">DESDE</label><input id="rFrom" type="date" value="${esc(reportFrom)}"></div><div class="field"><label for="rTo">HASTA</label><input id="rTo" type="date" value="${esc(reportTo)}"></div>`:''}
+ <div class="field"><label for="rVehicle">VEHÍCULO</label><select id="rVehicle"><option value="Todos" ${reportVehicle==='Todos'?'selected':''}>Todos los vehículos</option>${data.vehicles.map(v=>`<option ${reportVehicle===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
+ <div class="field search-field"><label for="rSearch">BUSCAR OPERACIÓN</label><input id="rSearch" placeholder="Descripción, proveedor, responsable…" value="${esc(reportSearch)}"></div>
+ <button type="button" class="btn btn-small" id="rReset">${icon('refresh',14)} Limpiar</button>
+ </div>
+ <p class="report-period-summary">${icon('calendar',15)} <span>Periodo: <strong>${esc(reportPeriodLabel())}</strong></span><span class="summary-dot">·</span><span>Vehículo: <strong>${esc(reportVehicle==='Todos'?'Todos':reportVehicle)}</strong></span><span class="summary-dot">·</span><span>${accepted.length} ${accepted.length===1?'operación aprobada':'operaciones aprobadas'}</span></p>
+ ${reportPeriod==='range' && reportFrom>reportTo?`<div class="notice"><div><strong>Rango de fechas incorrecto</strong><p>La fecha inicial no puede ser posterior a la final.</p></div></div>`:''}
  <div class="report-cards"><div class="report-card"><span>Ingresos aprobados</span><strong class="positive" style="color:var(--green)">${fmt(income)}</strong></div><div class="report-card"><span>Egresos aprobados</span><strong>${fmt(expense)}</strong></div><div class="report-card"><span>Balance neto</span><strong style="color:${balance>=0?'var(--green)':'var(--red)'}">${fmt(balance)}</strong></div></div>
  <div class="dashboard-chart-grid"><div class="panel"><div class="panel-head"><div><h3>Resumen por vehículo</h3><p>Operaciones aprobadas del periodo</p></div></div>${fleet.length?`<div class="table-wrap"><table><thead><tr><th>Vehículo</th><th class="text-right">Ingresos</th><th class="text-right">Egresos</th><th class="text-right">Resultado</th></tr></thead><tbody>${fleet.map(f=>`<tr><td><strong>${esc(f.name)}</strong></td><td class="text-right">${fmt(f.inc)}</td><td class="text-right">${fmt(f.out)}</td><td class="text-right amount">${fmt(f.inc-f.out)}</td></tr>`).join('')}</tbody></table></div>`:empty('Sin operaciones aprobadas','No hay información para generar el reporte.')}</div><div class="panel"><div class="panel-head"><div><h3>Gastos por categoría</h3><p>Distribución de egresos aprobados</p></div></div>${Object.entries(cat).length?Object.entries(cat).sort((a,b)=>b[1]-a[1]).map(([name,amount])=>`<div class="report-row"><span>${esc(name)}</span><strong>${fmt(amount)}</strong></div>`).join(''):empty('Sin egresos registrados')}</div></div>
  <div class="notice info is-demo">${icon('info',18)}<div><strong>Alcance del reporte</strong><p>El balance es una diferencia simple entre ingresos y egresos aprobados; no equivale a utilidad contable ni incluye conciliación bancaria o impuestos.</p></div></div>`;
@@ -376,14 +404,21 @@ function bindPage(){
  if(page==='reports'){
   $('#rVehicle')?.addEventListener('change',e=>{reportVehicle=e.target.value;render();});
   $('#rPeriod')?.addEventListener('change',e=>{reportPeriod=e.target.value;render();});
+  $('#rDay')?.addEventListener('change',e=>{reportDay=e.target.value;render();});
+  $('#rMonth')?.addEventListener('change',e=>{reportMonth=e.target.value;render();});
+  $('#rYear')?.addEventListener('change',e=>{reportYear=e.target.value;render();});
+  $('#rFrom')?.addEventListener('change',e=>{reportFrom=e.target.value;render();});
+  $('#rTo')?.addEventListener('change',e=>{reportTo=e.target.value;render();});
+  focusPreservedInput('#rSearch',value=>reportSearch=value);
+  $('#rReset')?.addEventListener('click',()=>{reportPeriod='all';reportVehicle='Todos';reportDay=localDate();reportMonth=localDate().slice(0,7);reportYear=localDate().slice(0,4);reportFrom=localDate().slice(0,7)+'-01';reportTo=localDate();reportSearch='';render();});
   $('#printReport')?.addEventListener('click',()=>window.print());
-  $('#exportReport')?.addEventListener('click',()=>{let rows=approvedRows(visibleRecords());if(reportPeriod==='month')rows=rows.filter(r=>r.date.startsWith(localDate().slice(0,7)));if(reportVehicle!=='Todos')rows=rows.filter(r=>r.vehicle===reportVehicle);csvExport(sortNewest(rows),'melo-travel-reporte.csv');});
+  $('#exportReport')?.addEventListener('click',()=>csvExport(sortNewest(approvedRows(filteredReportRows())),'melo-travel-reporte.csv'));
  }
  $('#addVehicle')?.addEventListener('click',addVehicle);
 }
 function closeMobileMenu(){$('#sidebar').classList.remove('mobile-open');$('#mobileOverlay').classList.add('hidden');}
 function globalEvents(){
- $('#loginForm').addEventListener('submit',e=>{e.preventDefault();const u=users.find(u=>u.id===$('#loginUser').value);if(!u||$('#loginPin').value!=='1234')return toast('Usuario o PIN de demostración incorrecto.','error');currentUser=u;page='dashboard';render();});
+ $('#loginForm').addEventListener('submit',e=>{e.preventDefault();const u=users.find(u=>u.id===$('#loginUser').value);if(!u||$('#loginPin').value!=='1234')return toast('Usuario o PIN incorrecto.','error');currentUser=u;page='dashboard';render();});
  $('#togglePin').innerHTML=icon('eye',17);
  $('#togglePin').addEventListener('click',()=>{const el=$('#loginPin');el.type=el.type==='password'?'text':'password';$('#togglePin').innerHTML=icon(el.type==='password'?'eye':'eye-off',17);});
  $('#logoutBtn').innerHTML=icon('logout',18);
