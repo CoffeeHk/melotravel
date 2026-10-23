@@ -180,13 +180,26 @@ function chartHTML(scoped){
 }
 const categoryColors=['#df1d43','#e97548','#f3b658','#3158b4','#7c61c2','#0c9c6b','#8a96ad'];
 function categoryHTML(scoped){
- const groups={};scoped.filter(r=>r.type==='Egreso').forEach(r=>{const cat=r.category==='Otro' && r.customCategory?r.customCategory:r.category;groups[cat]=(groups[cat]||0)+Number(r.amount);});
+ const groups={};
+ scoped.filter(r=>r.type==='Egreso').forEach(r=>{
+  const name=r.category==='Otro'&&r.customCategory?r.customCategory:r.category;
+  groups[name]=(groups[name]||0)+Number(r.amount);
+ });
  const ordered=Object.entries(groups).sort((a,b)=>b[1]-a[1]);
- const sum=ordered.reduce((n,x)=>n+x[1],0);
+ const sum=ordered.reduce((value,item)=>value+item[1],0);
  let cursor=0;
- const stops=ordered.map(([_,value],index)=>{const start=cursor;cursor+=100*value/sum;return `${categoryColors[index%categoryColors.length]} ${start.toFixed(3)}% ${cursor.toFixed(3)}%`;});
- const gradient=sum?`conic-gradient(${stops.join(',')})`:'conic-gradient(#ebeff5 0 100%)';
- return `<div class="panel"><div class="panel-head"><div><h3>Distribución de gastos</h3><p>Por categoría, solo aprobados</p></div></div><div class="donut-wrap"><div class="donut" style="background:${gradient}"><div class="donut-hole"><strong>${sum?fmtShort(sum):'—'}</strong><span>Total S/</span></div></div></div>${ordered.length?`<div class="category-list">${ordered.slice(0,5).map(([cat,val],i)=>`<div class="category-line"><div class="category-left"><i style="background:${categoryColors[i%categoryColors.length]}"></i><span title="${esc(cat)}">${esc(cat)}</span></div><b>${(val/sum*100).toFixed(1)}%</b></div>`).join('')}</div>`:`<div class="footer-note" style="text-align:center">Aún no hay gastos aprobados en este filtro.</div>`}</div>`;
+ const slices=ordered.map(([_,amount],index)=>{
+  const start=cursor;
+  cursor+=100*amount/sum;
+  return `${categoryColors[index%categoryColors.length]} ${start.toFixed(3)}% ${cursor.toFixed(3)}%`;
+ });
+ const gradient=sum?`conic-gradient(${slices.join(',')})`:'conic-gradient(#e9edf4 0 100%)';
+ return `<div class="panel spend-panel">
+ <div class="panel-head"><div><h3>Distribución de gastos</h3><p>Por categoría · Movimientos aprobados</p></div></div>
+ <div class="spend-content ${sum?'':'spend-empty'}">
+ <div class="donut-wrap"><div class="donut" style="background:${gradient}"><div class="donut-hole"><strong>${sum?fmt(sum):'S/ 0'}</strong><span>Total de egresos</span></div></div></div>
+ ${ordered.length?`<div class="category-list">${ordered.slice(0,5).map(([name,amount],index)=>`<div class="category-line"><div class="category-left"><i style="background:${categoryColors[index%categoryColors.length]}"></i><span title="${esc(name)}">${esc(name)}</span></div><b>${(100*amount/sum).toFixed(1)}%</b></div>`).join('')}</div>`:`<p class="spend-empty-message">Sin egresos aprobados para el periodo seleccionado.</p>`}
+ </div></div>`;
 }
 function tableHTML(rows,compact=false){
  if(!rows.length)return empty('Sin movimientos para mostrar','Modifica los filtros o registra una nueva operación.');
@@ -214,9 +227,14 @@ function renderDashboard(){
  <div class="metric"><div class="metric-kicker"><span>Pendientes de revisión</span><div class="metric-icon gold">${icon('clock',21)}</div></div><div class="metric-value">${filtered.filter(r=>r.status==='pending').length}</div><div class="metric-foot">Movimientos aún no contabilizados</div></div></section>
  <div class="dashboard-chart-grid">${chartHTML(accepted)}${categoryHTML(accepted)}</div>
  <div class="bottom-grid"><div class="panel"><div class="panel-head"><div><h3>Últimos movimientos</h3><p>Operaciones del periodo ${esc(periodLabel)}</p></div><button class="small-link" data-go="history">Ver historial →</button></div>${tableHTML(recent,true)}</div>
- <div class="panel quick-access-panel"><div class="panel-head"><div><h3>Accesos rápidos</h3><p>Operaciones frecuentes</p></div></div><div class="quick-access-buttons"><button class="quick-action" data-go="new">${icon('plus-circle')} <span>Registrar movimiento</span>${icon('arrow-right',15)}</button><button class="quick-action" data-go="review">${icon('clipboard-check')} <span>${isAdmin()?'Revisar aprobaciones':'Ver estado de mis registros'}</span>${icon('arrow-right',15)}</button><button class="quick-action" data-go="reports">${icon('bar-chart')} <span>Consultar reportes</span>${icon('arrow-right',15)}</button><button class="quick-action" data-go="vehicles">${icon('truck')} <span>Consultar vehículos</span>${icon('arrow-right',15)}</button>
- </div><div class="fleet-mini"><div class="panel-head" style="margin-bottom:3px"><div><h3>Gastos por vehículo</h3><p>Periodo seleccionado</p></div></div>${fleet.length?fleet.map(f=>`<div class="fleet-line"><div class="fleet-line-top"><span>${esc(f.name)}</span><strong>${fmt(f.amount)}</strong></div><div class="progress-track"><div class="progress-bar ${f.amount===Math.max(...fleet.map(x=>x.amount))?'red':''}" style="width:${fleetTotal?f.amount/fleetTotal*100:0}%"></div></div></div>`).join(''):'<div class="footer-note">Sin gastos aprobados para los filtros.</div>'}</div></div></div>
- <div class="notice is-demo info" style="margin-top:18px">${icon('info',18)}<div><strong>Vista de demostración</strong><p>Solo los movimientos aprobados se suman al balance. Los datos quedan guardados localmente en este navegador, no en una base de datos.</p></div></div>`;
+ <div class="panel quick-access-panel"><div class="panel-head"><div><h3>Accesos rápidos</h3><p>Operaciones frecuentes</p></div></div><div class="quick-access-buttons">
+ <button class="quick-action" data-go="new">${icon('plus-circle')} <span>Registrar movimiento</span>${icon('arrow-right',15)}</button>
+ <button class="quick-action" data-go="review">${icon('clipboard-check')} <span>${isAdmin()?'Revisar aprobaciones':'Ver estado de mis registros'}</span>${icon('arrow-right',15)}</button>
+ <button class="quick-action" data-go="reports">${icon('bar-chart')} <span>Consultar reportes</span>${icon('arrow-right',15)}</button>
+ <button class="quick-action" data-go="vehicles">${icon('truck')} <span>Consultar vehículos</span>${icon('arrow-right',15)}</button>
+ </div></div></div>
+ <section class="panel fleet-breakdown"><div class="panel-head"><div><h3>Gastos por vehículo</h3><p>Distribución de egresos aprobados · Periodo seleccionado</p></div><button class="small-link" data-go="vehicles">Ver vehículos →</button></div>
+ ${fleet.length?`<div class="fleet-summary-grid">${fleet.map(f=>`<div class="fleet-summary-card"><div class="fleet-summary-top"><span>${icon('truck',16)} ${esc(f.name)}</span><strong>${fmt(f.amount)}</strong></div><div class="progress-track"><div class="progress-bar ${f.amount===Math.max(...fleet.map(x=>x.amount))?'red':''}" style="width:${fleetTotal?f.amount/fleetTotal*100:0}%"></div></div><div class="fleet-summary-share">${fleetTotal?(100*f.amount/fleetTotal).toFixed(1):'0.0'} % del gasto del periodo</div></div>`).join('')}</div>`:`<div class="fleet-no-data">${icon('truck',21)} <span>Sin gastos aprobados para los filtros seleccionados.</span></div>`}</section>`;
 }
 function renderNew(){
  const now=localDate();
@@ -234,8 +252,8 @@ function renderNew(){
  <div class="field"><label for="fAccount">CUENTA / CAJA</label><select id="fAccount"><option>Caja chica</option><option>BCP</option><option>Yape / Plin</option><option>Otra cuenta</option></select></div>
  <div class="field full"><label for="fDescription">DESCRIPCIÓN DE LA OPERACIÓN *</label><input id="fDescription" maxlength="180" placeholder="Ej. Compra de repuestos para el vehículo" required></div>
  <div class="field full"><label for="fNotes">NOTAS ADICIONALES</label><textarea id="fNotes" maxlength="750" placeholder="Número de operación, kilometraje, observaciones, etc."></textarea></div>
- <div class="field full"><label for="fEvidence">COMPROBANTES O EVIDENCIAS (HASTA 3 FOTOS)</label><div class="upload-box">${icon('image',23)}<p class="footer-note" style="margin:5px 0 12px">Fotos JPG, PNG o WEBP · Máximo 3 MB por foto. Se optimizarán antes de guardarse localmente.</p><input id="fEvidence" type="file" accept="image/png,image/jpeg,image/webp" multiple><div class="preview-list" id="previewList"></div></div></div></div>
- <div class="form-actions"><button type="button" class="btn" data-go="dashboard">Cancelar</button><button type="submit" class="btn btn-primary" id="saveMovement">${icon('check',17)} Enviar a revisión</button></div><p class="footer-note">Este prototipo almacena registros y fotos solo en este navegador. No lo utilices como archivo financiero definitivo hasta implementar Supabase.</p></form></div>`;
+ <div class="field full"><label for="fEvidence">COMPROBANTES O EVIDENCIAS (HASTA 3 FOTOS)</label><div class="upload-box">${icon('image',23)}<p class="footer-note" style="margin:5px 0 12px">Fotos JPG, PNG o WEBP · Máximo 3 MB por foto. Las imágenes se ajustan automáticamente.</p><input id="fEvidence" type="file" accept="image/png,image/jpeg,image/webp" multiple><div class="preview-list" id="previewList"></div></div></div></div>
+ <div class="form-actions"><button type="button" class="btn" data-go="dashboard">Cancelar</button><button type="submit" class="btn btn-primary" id="saveMovement">${icon('check',17)} Enviar a revisión</button></div></form></div>`;
 }
 function renderReview(){
  const queue=sortNewest(visibleRecords().filter(r=>r.status==='pending'));
@@ -282,14 +300,14 @@ function renderReports(){
  ${reportPeriod==='range' && reportFrom>reportTo?`<div class="notice"><div><strong>Rango de fechas incorrecto</strong><p>La fecha inicial no puede ser posterior a la final.</p></div></div>`:''}
  <div class="report-cards"><div class="report-card"><span>Ingresos aprobados</span><strong class="positive" style="color:var(--green)">${fmt(income)}</strong></div><div class="report-card"><span>Egresos aprobados</span><strong>${fmt(expense)}</strong></div><div class="report-card"><span>Balance neto</span><strong style="color:${balance>=0?'var(--green)':'var(--red)'}">${fmt(balance)}</strong></div></div>
  <div class="dashboard-chart-grid"><div class="panel"><div class="panel-head"><div><h3>Resumen por vehículo</h3><p>Operaciones aprobadas del periodo</p></div></div>${fleet.length?`<div class="table-wrap"><table><thead><tr><th>Vehículo</th><th class="text-right">Ingresos</th><th class="text-right">Egresos</th><th class="text-right">Resultado</th></tr></thead><tbody>${fleet.map(f=>`<tr><td><strong>${esc(f.name)}</strong></td><td class="text-right">${fmt(f.inc)}</td><td class="text-right">${fmt(f.out)}</td><td class="text-right amount">${fmt(f.inc-f.out)}</td></tr>`).join('')}</tbody></table></div>`:empty('Sin operaciones aprobadas','No hay información para generar el reporte.')}</div><div class="panel"><div class="panel-head"><div><h3>Gastos por categoría</h3><p>Distribución de egresos aprobados</p></div></div>${Object.entries(cat).length?Object.entries(cat).sort((a,b)=>b[1]-a[1]).map(([name,amount])=>`<div class="report-row"><span>${esc(name)}</span><strong>${fmt(amount)}</strong></div>`).join(''):empty('Sin egresos registrados')}</div></div>
- <div class="notice info is-demo">${icon('info',18)}<div><strong>Alcance del reporte</strong><p>El balance es una diferencia simple entre ingresos y egresos aprobados; no equivale a utilidad contable ni incluye conciliación bancaria o impuestos.</p></div></div>`;
+ `;
 }
 function renderVehicles(){
  const rows=approvedRows(visibleRecords());
  const cards=data.vehicles.map(name=>{const mine=rows.filter(r=>r.vehicle===name);const income=total(mine,'Ingreso'),expense=total(mine,'Egreso');return {name,income,expense,count:mine.length,balance:income-expense};});
  return `${pageHead('GESTIÓN DE FLOTA','Vehículos','Consulta el resultado registrado de cada vehículo y los gastos generales.',isAdmin()?`<button class="btn btn-primary" id="addVehicle">${icon('plus-circle',16)} Añadir vehículo</button>`:'')}
  <div class="vehicle-cards">${cards.map(v=>`<div class="panel vehicle-card"><div class="vehicle-card-header"><div class="vehicle-icon">${icon('truck',23)}</div><div><strong>${esc(v.name)}</strong><span>${v.count} operaciones aprobadas</span></div></div><div class="vehicle-values"><div><span>Ingresos</span><strong style="color:var(--green)">${fmt(v.income)}</strong></div><div><span>Egresos</span><strong>${fmt(v.expense)}</strong></div><div><span>Balance</span><strong class="${v.balance<0?'negative':'positive'}">${fmt(v.balance)}</strong></div></div><div class="mini-note">Se consideran únicamente los movimientos aprobados.</div></div>`).join('')}</div>
- <div class="notice info is-demo">${icon('info',18)}<div><strong>Catálogo de vehículos</strong><p>En esta versión puedes añadir vehículos de prueba desde Administración. La gestión completa y compartida entre dispositivos se implementará con la base de datos.</p></div></div>`;
+`;
 }
 
 function openModal(title,body,footer=''){
@@ -371,9 +389,9 @@ function csvExport(records,filename){
 }
 function addVehicle(){
  if(!isAdmin())return;
- openModal('Añadir vehículo',`<div class="field"><label for="newVehicleName">NOMBRE DEL VEHÍCULO O ÁREA *</label><input id="newVehicleName" maxlength="50" placeholder="Ej. Minibús 02"></div><p class="footer-note">El catálogo se guardará solamente en este navegador durante la fase de demostración.</p>`,`<button class="btn" id="cancelVehicle">Cancelar</button><button class="btn btn-primary" id="confirmVehicle">Agregar</button>`);
+ openModal('Añadir vehículo',`<div class="field"><label for="newVehicleName">NOMBRE DEL VEHÍCULO O ÁREA *</label><input id="newVehicleName" maxlength="50" placeholder="Ej. Minibús 02"></div><p class="footer-note"></p>`,`<button class="btn" id="cancelVehicle">Cancelar</button><button class="btn btn-primary" id="confirmVehicle">Agregar</button>`);
  $('#cancelVehicle').addEventListener('click',closeModal);
- $('#confirmVehicle').addEventListener('click',()=>{const value=$('#newVehicleName').value.trim();if(value.length<2)return toast('Escribe el nombre del vehículo.','error');if(data.vehicles.some(x=>x.toLowerCase()===value.toLowerCase()))return toast('Ese vehículo ya existe.','error');data.vehicles.push(value);persist();closeModal();render();toast('Vehículo añadido al catálogo local.','success');});
+ $('#confirmVehicle').addEventListener('click',()=>{const value=$('#newVehicleName').value.trim();if(value.length<2)return toast('Escribe el nombre del vehículo.','error');if(data.vehicles.some(x=>x.toLowerCase()===value.toLowerCase()))return toast('Ese vehículo ya existe.','error');data.vehicles.push(value);persist();closeModal();render();toast('Vehículo añadido al catálogo.','success');});
 }
 function focusPreservedInput(selector,onInput){const el=$(selector);if(!el)return;el.addEventListener('input',e=>{const pos=e.target.selectionStart;onInput(e.target.value);render();const next=$(selector);if(next){next.focus();if(typeof pos==='number')next.setSelectionRange(pos,pos);}});}
 function bindPage(){
